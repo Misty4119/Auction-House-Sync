@@ -3,8 +3,8 @@ package me.elaineqheart.auctionHouse.GUI.impl;
 import me.elaineqheart.auctionHouse.AuctionHouse;
 import me.elaineqheart.auctionHouse.GUI.InventoryButton;
 import me.elaineqheart.auctionHouse.GUI.InventoryGUI;
+import me.elaineqheart.auctionHouse.GUI.other.AnvilHandler;
 import me.elaineqheart.auctionHouse.GUI.other.Sounds;
-import me.elaineqheart.auctionHouse.GUI.other.input.InputHandler;
 import me.elaineqheart.auctionHouse.TaskManager;
 import me.elaineqheart.auctionHouse.data.persistentStorage.ItemNoteStorage;
 import me.elaineqheart.auctionHouse.data.persistentStorage.local.SettingManager;
@@ -273,8 +273,12 @@ public class AuctionHouseGUI extends InventoryGUI implements Runnable {
                         c.setCurrentPage(0);
                         update();
                     }else {
+                        if (ConfigManager.oldVersion21()) {
+                            c.getPlayer().sendMessage(M.getFormatted("command-feedback.old-version-anvil"));
+                            return;
+                        }
                         Sounds.click(event);
-                        InputHandler handler = new InputHandler() {
+                        AnvilHandler handler = new AnvilHandler() {
                             public void execute(Player p, String typedText) {
                                 c.setCurrentSearch(typedText);
                                 AuctionHouse.getGuiManager().openGUI(new AuctionHouseGUI(c), p);
@@ -285,9 +289,9 @@ public class AuctionHouseGUI extends InventoryGUI implements Runnable {
                             }
                         };
                         if(c.isAdmin()){
-                            AuctionHouse.getInputManager().open(c.getPlayer(), "inventory-titles.anvil-admin-search", handler);
+                            AuctionHouse.getAnvilManager().open(c.getPlayer(), "inventory-titles.anvil-admin-search", handler);
                         }else {
-                            AuctionHouse.getInputManager().open(c.getPlayer(), "inventory-titles.anvil-search", handler);
+                            AuctionHouse.getAnvilManager().open(c.getPlayer(), "inventory-titles.anvil-search", handler);
                         }
                     }
                 });

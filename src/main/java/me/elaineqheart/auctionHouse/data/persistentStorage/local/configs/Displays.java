@@ -1,36 +1,71 @@
 package me.elaineqheart.auctionHouse.data.persistentStorage.local.configs;
 
 import me.elaineqheart.auctionHouse.AuctionHouse;
+import me.elaineqheart.auctionHouse.data.persistentStorage.database.MySQLMetaStore;
+import me.elaineqheart.auctionHouse.data.persistentStorage.database.RedisMetaCache;
+import me.elaineqheart.auctionHouse.data.persistentStorage.database.RedisSyncManager;
+import me.elaineqheart.auctionHouse.data.persistentStorage.local.SettingManager;
 import me.elaineqheart.auctionHouse.data.persistentStorage.local.data.Config;
 import me.elaineqheart.auctionHouse.world.displays.DisplayListener;
 import me.elaineqheart.auctionHouse.world.displays.DisplayNote;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.entity.*;
+import org.bukkit.entity.BlockDisplay;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Interaction;
+import org.bukkit.entity.Item;
+import org.bukkit.entity.TextDisplay;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.util.HashMap;
-import java.util.Objects;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
+/**
+ * Cross-server world-display registry.
+ *
+ * <p>Each display records the location and the UUIDs of the four entities
+ * that make it up (BlockDisplay, Interaction, Item, TextDisplay). The data
+ * is stored in MySQL ({@code ah_displays}) and mirrored in memory by
+ * {@link RedisMetaCache}, with {@link RedisSyncManager} broadcasting changes
+ * so displays placed on one server can be rebuilt on others when those
+ * servers boot.</p>
+ */
 public class Displays extends Config {
 
     public void addDisplay(int id, DisplayNote note) {
-        getYmlData().set(id + ".location", note.location);
-        getYmlData().set(id + ".rank", note.rank);
-        getYmlData().set(id + ".sortType", note.sortType);
-        getYmlData().set(id + ".glassUUID", note.glassUUID.toString());
-        getYmlData().set(id + ".interactionUUID", note.interactionUUID.toString());
-        getYmlData().set(id + ".itemUUID", note.itemUUID == null ? null : note.itemUUID.toString());
-        getYmlData().set(id + ".textUUID", note.textUUID == null ? null : note.textUUID.toString());
+        if (SettingManager.useMetaPersistence()) {
+            MySQLMetaStore.DisplayRow row = toRow(id, note);
+            MySQLMetaStore.upsertDisplay(id, row);
+            RedisMetaCache.applyDisplayUpsert(id, row);
+            if (SettingManager.useMetaRedisCache()) {
+                RedisSyncManager.publishDisplayUpsert(row);
+            }
+            return;
+        }
+        ConfigurationSection sec = getYmlData();
+        sec.set(id + ".location", note.location);
+        sec.set(id + ".rank", note.rank);
+        sec.set(id + ".sortType", note.sortType);
+        sec.set(id + ".glassUUID", note.glassUUID == null ? null : note.glassUUID.toString());
+        sec.set(id + ".interactionUUID", note.interactionUUID == null ? null : note.interactionUUID.toString());
+        sec.set(id + ".itemUUID", note.itemUUID == null ? null : note.itemUUID.toString());
+        sec.set(id + ".textUUID", note.textUUID == null ? null : note.textUUID.toString());
         save();
     }
 
     public void removeDisplay(int id) {
+        if (SettingManager.useMetaPersistence()) {
+            MySQLMetaStore.deleteDisplay(id);
+            RedisMetaCache.applyDisplayDelete(id);
+            if (SettingManager.useMetaRedisCache()) {
+                RedisSyncManager.publishDisplayDelete(id);
+            }
+            return;
+        }
         getYmlData().set(String.valueOf(id), null);
         save();
     }
@@ -39,17 +74,23 @@ public class Displays extends Config {
         addDisplay(id, note);
     }
 
-    private ConfigurationSection getYmlData() {
-        ConfigurationSection ymlData = getCustomFile().getConfigurationSection("displays");
-        if (ymlData != null) return ymlData;
-        getCustomFile().createSection("displays");
-        save();
-        return getCustomFile().getConfigurationSection("displays");
-    }
-
     public HashMap<Integer, DisplayNote> getNotes() {
-        HashMap<Integer, DisplayNote> notes = new HashMap<>();
-        for (String key : getYmlData().getKeys(false)) {
+        HashMap<Integer, DisplayNote> out = new HashMap<>();
+        if (SettingManager.useMetaPersistence()) {
+            for (Map.Entry<Integer, MySQLMetaStore.DisplayRow> e : RedisMetaCache.getAllDisplays().entrySet()) {
+                int id = e.getKey();
+                MySQLMetaStore.DisplayRow row = e.getValue();
+                DisplayNote note = fromRow(row);
+                if (note != null && note.location.getWorld() == null) {
+                    removeDisplay(id);
+                    continue;
+                }
+                if (note != null) out.put(id, note);
+            }
+            return out;
+        }
+        ConfigurationSection sec = getYmlData();
+        for (String key : sec.getKeys(false)) {
             int id = Integer.parseInt(key);
             DisplayNote note = getNote(key);
             if (note != null && note.location.getWorld() == null) {
@@ -57,32 +98,47 @@ public class Displays extends Config {
                 save();
                 continue;
             }
-            notes.put(id, note);
+            notes_put(out, id, note);
         }
-        return notes;
+        return out;
+    }
+
+    private static void notes_put(HashMap<Integer, DisplayNote> map, int id, DisplayNote note) {
+        if (note != null) map.put(id, note);
     }
 
     public DisplayNote getNote(String id) {
-        if (getYmlData().contains(id + ".location")) {
+        if (SettingManager.useMetaPersistence()) {
+            try {
+                int displayId = Integer.parseInt(id);
+                MySQLMetaStore.DisplayRow row = RedisMetaCache.getDisplay(displayId);
+                if (row == null) return null;
+                return fromRow(row);
+            } catch (NumberFormatException ex) {
+                return null;
+            }
+        }
+        ConfigurationSection sec = getYmlData();
+        if (sec.contains(id + ".location")) {
             DisplayNote note = new DisplayNote();
-            note.location = getYmlData().getLocation(id + ".location");
-            note.rank = getYmlData().getInt(id + ".rank");
-            note.sortType = getYmlData().getString(id + ".sortType");
-            note.glassUUID = UUID.fromString(Objects.requireNonNull(getYmlData().getString(id + ".glassUUID")));
-            note.interactionUUID = UUID.fromString(Objects.requireNonNull(getYmlData().getString(id + ".interactionUUID")));
-            if (getYmlData().contains(id + ".itemUUID")) {
-                String itemUUID = getYmlData().getString(id + ".itemUUID");
+            note.location = sec.getLocation(id + ".location");
+            note.rank = sec.getInt(id + ".rank");
+            note.sortType = sec.getString(id + ".sortType");
+            note.glassUUID = UUID.fromString(sec.getString(id + ".glassUUID"));
+            note.interactionUUID = UUID.fromString(sec.getString(id + ".interactionUUID"));
+            if (sec.contains(id + ".itemUUID")) {
+                String itemUUID = sec.getString(id + ".itemUUID");
                 note.itemUUID = itemUUID == null ? null : UUID.fromString(itemUUID);
             }
-            if (getYmlData().contains(id + ".textUUID")) {
-                String textUUID = getYmlData().getString(id + ".textUUID");
+            if (sec.contains(id + ".textUUID")) {
+                String textUUID = sec.getString(id + ".textUUID");
                 note.textUUID = textUUID == null ? null : UUID.fromString(textUUID);
             }
             return note;
         }
         if (AuctionHouse.isFolia()) return null;
 
-        Location loc = getYmlData().getLocation(id);
+        Location loc = sec.getLocation(id);
         if (loc != null) {
             DisplayNote note = retrieveDataBackwardsCompatibility(loc, Integer.parseInt(id));
             if (note != null) return note;
@@ -90,29 +146,31 @@ public class Displays extends Config {
             note.location = loc;
             return note;
         }
-
         return null;
     }
 
     public void backwardsCompatibility() {
+        // Only meaningful for the YAML path; the MySQL path already
+        // populates `ah_displays` from authoritative data.
+        if (SettingManager.useMetaPersistence()) return;
         Set<Integer> oldSet = null;
-        FileConfiguration customFile = getCustomFile();
+        ConfigurationSection customFile = getCustomFile();
         try {
-            // This method is for backwards compatibility
             oldSet = customFile.getKeys(false).stream()
                     .map(Integer::parseInt)
-                    .collect(Collectors.toSet());
+                    .collect(java.util.stream.Collectors.toSet());
         } catch (NumberFormatException ignored) {}
 
-        //This section of code is needed, even without backwards compatibility
         if (customFile.getConfigurationSection("displays") == null) {
             customFile.createSection("displays");
         }
-
-        if(oldSet != null) {
+        if (oldSet != null) {
             for (Integer displayID : oldSet) {
-                Objects.requireNonNull(customFile.getConfigurationSection("displays")).set(String.valueOf(displayID), customFile.get(String.valueOf(displayID)));
-                customFile.set(String.valueOf(displayID), null); // Remove the old key
+                ConfigurationSection displaysSec = customFile.getConfigurationSection("displays");
+                if (displaysSec != null) {
+                    displaysSec.set(String.valueOf(displayID), customFile.get(String.valueOf(displayID)));
+                }
+                customFile.set(String.valueOf(displayID), null);
             }
         }
         save();
@@ -192,4 +250,48 @@ public class Displays extends Config {
         return false;
     }
 
+    // ---- row <-> DisplayNote conversions ----
+
+    private static MySQLMetaStore.DisplayRow toRow(int id, DisplayNote note) {
+        Location loc = note.location;
+        return new MySQLMetaStore.DisplayRow(
+                id,
+                loc == null || loc.getWorld() == null ? "world" : loc.getWorld().getName(),
+                loc == null ? 0 : loc.getBlockX() + 0.5,
+                loc == null ? 0 : loc.getY(),
+                loc == null ? 0 : loc.getBlockZ() + 0.5,
+                loc == null ? 0 : loc.getYaw(),
+                loc == null ? 0 : loc.getPitch(),
+                note.rank,
+                note.sortType,
+                note.glassUUID == null ? null : note.glassUUID.toString(),
+                note.interactionUUID == null ? null : note.interactionUUID.toString(),
+                note.itemUUID == null ? null : note.itemUUID.toString(),
+                note.textUUID == null ? null : note.textUUID.toString(),
+                SettingManager.serverId);
+    }
+
+    private static DisplayNote fromRow(MySQLMetaStore.DisplayRow row) {
+        DisplayNote note = new DisplayNote();
+        org.bukkit.World world = Bukkit.getWorld(row.world);
+        if (world == null) return null;
+        note.location = new Location(world, row.x, row.y, row.z, row.yaw, row.pitch);
+        note.rank = row.rank;
+        note.sortType = row.sortType;
+        if (row.glassUuid != null && !row.glassUuid.isEmpty()) note.glassUUID = UUID.fromString(row.glassUuid);
+        if (row.interactionUuid != null && !row.interactionUuid.isEmpty()) note.interactionUUID = UUID.fromString(row.interactionUuid);
+        if (row.itemUuid != null && !row.itemUuid.isEmpty()) note.itemUUID = UUID.fromString(row.itemUuid);
+        if (row.textUuid != null && !row.textUuid.isEmpty()) note.textUUID = UUID.fromString(row.textUuid);
+        return note;
+    }
+
+    // ---- YAML accessors for the JSON fallback path ----
+
+    private ConfigurationSection getYmlData() {
+        ConfigurationSection ymlData = getCustomFile().getConfigurationSection("displays");
+        if (ymlData != null) return ymlData;
+        getCustomFile().createSection("displays");
+        save();
+        return getCustomFile().getConfigurationSection("displays");
+    }
 }

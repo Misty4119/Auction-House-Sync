@@ -2,17 +2,21 @@ package me.elaineqheart.auctionHouse.data;
 
 import me.elaineqheart.auctionHouse.data.persistentStorage.local.SettingManager;
 import me.elaineqheart.auctionHouse.data.persistentStorage.local.configs.M;
-import org.bukkit.*;
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
+import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Item;
 import org.bukkit.inventory.ItemStack;
 
 import java.text.DecimalFormat;
-import java.util.Arrays;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 public class StringUtils {
+
+    /** Re-exported so other classes can build guaranteed-non-null names. */
+    public static final String RESET = ChatColor.RESET.toString();
 
     public static String getTime(Long seconds, boolean convertDays) { //output example: 4h 23m 59s
         String s;
@@ -86,20 +90,34 @@ public class StringUtils {
     }
 
     public static String getItemName(ItemStack item) {
-        if(item.getItemMeta() != null && item.getItemMeta().hasDisplayName()) return item.getItemMeta().getDisplayName();
-        World world = Bukkit.getWorlds().getFirst();
-        Item itemEntity = (Item) world.spawnEntity(new Location(world,0,0,0), EntityType.ITEM);
-        itemEntity.setItemStack(item);
-        String name = itemEntity.getName();
-        itemEntity.remove();
-        System.out.println(name);
-        if (ChatColor.stripColor(name).equals("Stone")) {
-            // getting item name failed; using fallback method
-            // if material IS stone, using fallback method works just fine
-            if (item.getItemMeta() != null && !item.getItemMeta().getItemName().isEmpty()) return item.getItemMeta().getItemName();
-            return formatMaterialName(item.getType());
+        if (item == null) {
+            return ChatColor.RESET + "Unknown";
         }
-        return name;
+        String name = null;
+        try {
+            World world = Bukkit.getWorlds().getFirst();
+            if (world != null) {
+                Item itemEntity = (Item) world.spawnEntity(new Location(world, 0, 0, 0), EntityType.ITEM);
+                itemEntity.setItemStack(item);
+                name = itemEntity.getName();
+                itemEntity.remove();
+            }
+        } catch (Throwable t) {
+            // Some servers (or odd lifecycles) throw when we try to spawn an
+            // entity — fall back to material name.
+        }
+        if (name == null || name.isEmpty()) {
+            try {
+                String mat = item.getType() == null ? "Unknown" : item.getType().name();
+                name = mat.toLowerCase().replace('_', ' ');
+            } catch (Throwable t) {
+                name = "Unknown";
+            }
+        }
+        if (item.getItemMeta() != null && item.getItemMeta().hasDisplayName()) {
+            name = ChatColor.ITALIC + item.getItemMeta().getDisplayName();
+        }
+        return ChatColor.RESET + name;
     }
 
     public static double parsePositiveNumber(String input) {
@@ -139,21 +157,6 @@ public class StringUtils {
         } else {
             return String.format("%.1fB", price / 1000000000.0);
         }
-    }
-
-
-    // Credit: https://github.com/Rosewood-Development/RoseStacker/blob/master/Plugin/src/main/java/dev/rosewood/rosestacker/utils/StackerUtils.java
-    // But only because it's messing with item creation. When using that plugin, default spawned item entities have "Stone" as their item name.
-    public static String formatMaterialName(Material material) {
-        if (material == Material.TNT)
-            return "TNT";
-        return formatName(material.name());
-    }
-
-    public static String formatName(String name) {
-        return Arrays.stream(name.replace('_', ' ').split("\\s+"))
-                .map(x -> x.substring(0, 1).toUpperCase() + x.substring(1).toLowerCase())
-                .collect(Collectors.joining(" "));
     }
 
 }

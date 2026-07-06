@@ -59,27 +59,26 @@ chat:
     &n§eYou collected an auction for %price%!
     &n§b-------------------------------------------------"
   purchase-auction: "§b-------------------------------------------------
-    &n§eYou purchased §r%item%§e from §7%seller%§e's auction
+    &n§eYou purchased %item% from §7%seller%§e's auction
     &n§b-------------------------------------------------"
   sold-message:
-    prefix: "§6[Auction] §7%buyer%§e bought §r%item%§e for %price%"
+    prefix: "§6[Auction] §7%buyer%§e bought %item%§e for %price% "
     interaction: "§f§l[CLICK]"
-    auto-collect: "§6[Auction] §7%buyer%§e bought §r%item%§e! §6+%price%"
-  auction-announcement: "§6[Auction] §7%player%§e is selling §r%item%§e x%amount% for %price%"
-  bid-announcement: "§6[Auction] §7%player%§e is auctioning §r%item%§e x%amount% for %price%"
+    auto-collect: "§6[Auction] §7%buyer%§e bought %item%§e! §6+%price%"
+  auction-announcement: "§6[Auction] §7%player%§e is selling %item%§e x%amount% for %price%"
+  bid-announcement: "§6[Auction] §7%player%§e is auctioning %item%§e x%amount% for %price%"
   invalid-amount: "§cThat is not a valid amount!"
-  placed-bid: "§eBid of %price%§e placed for §r%item%§e!"
+  placed-bid: "§eBid of %price%§e placed for %item%§e!"
   outbid:
-    prefix: "§6[Auction] §7%player%§e outbid you by %price%§e for §r%item%§e"
+    prefix: "§6[Auction] §7%player%§e outbid you by %price%§e for %item%"
     interaction: "§f§l[CLICK]"
   already-top-bid: "§aYou already have the top bid on this auction!"
   claim-auction: "§b-------------------------------------------------
-    &n§eYou claimed §r%item%§e from §7%seller%§e's auction
+    &n§eYou claimed %item%§e from §7%seller%§e's auction
     &n§b-------------------------------------------------"
   collect-coins: "§b-------------------------------------------------
     &n§eYou collected %price%§e back from an auction
     &n§b-------------------------------------------------"
-  input-listener: "§e%request%. Please type your input in chat:"
 
 inventory-titles:
   admin-confirm-gui: "Confirm Action"
@@ -524,7 +523,7 @@ command-feedback:
   blacklist-undo-error: "There are no rules"
   blacklist-no-item-in-hand: "§eYou need to hold an item in your hand to add its properties to the blacklist"
   blacklist-no-model: "§eYou need to hold an item in your hand with a custom \"item_model\" to add that model to the blacklist"
-  blacklist-success: "Successfully added the properties of %item%§r to the blacklist"
+  blacklist-success: "Successfully added the properties of %item% to the blacklist"
   blacklist-name-success: "Successfully added \"%name%\" to the blacklist"
   blacklist-all: "Successfully added EVERY item to the blacklist"
   item-blacklisted: "§cYou cannot auction this item!"
@@ -548,6 +547,7 @@ command-feedback:
     test: "§6/ah test:§f Used to save the item from your main hand to the files"
     help: "§6/ah help:§f Shows the help menu"
     search: "§6/ah search:§f Search an item on the ah"
+  old-version-anvil: "This feature isn't supported in your current minecraft version. Try switching to a newer one or use §6/ah search <item>"
 
 placeholders:
   number: "§6%input%§r"

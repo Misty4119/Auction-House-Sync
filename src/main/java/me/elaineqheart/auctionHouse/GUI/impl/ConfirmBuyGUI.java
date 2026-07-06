@@ -2,9 +2,11 @@ package me.elaineqheart.auctionHouse.GUI.impl;
 
 import me.elaineqheart.auctionHouse.AuctionHouse;
 import me.elaineqheart.auctionHouse.GUI.InventoryButton;
+import me.elaineqheart.auctionHouse.data.StringUtils;
 import me.elaineqheart.auctionHouse.GUI.InventoryGUI;
 import me.elaineqheart.auctionHouse.GUI.other.Sounds;
 import me.elaineqheart.auctionHouse.data.persistentStorage.ItemNoteStorage;
+import me.elaineqheart.auctionHouse.data.persistentStorage.database.CrossServerMessenger;
 import me.elaineqheart.auctionHouse.data.persistentStorage.local.SettingManager;
 import me.elaineqheart.auctionHouse.data.persistentStorage.local.configs.M;
 import me.elaineqheart.auctionHouse.data.ram.AhConfiguration;
@@ -19,6 +21,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+
+import java.util.UUID;
 
 public class ConfirmBuyGUI extends InventoryGUI{
 
@@ -124,30 +128,63 @@ public class ConfirmBuyGUI extends InventoryGUI{
                     p.sendMessage(M.getFormatted("chat.purchase-auction",
                             "%seller%", M.formatSeller(note.getPlayerName(), note.getPlayerUUID()),
                             "%item%", note.getItemName()));
-                    Player seller = Bukkit.getPlayer(note.getPlayerUUID());
-                    if (SettingManager.soldMessageEnabled && seller != null && Bukkit.getOnlinePlayers().contains(seller)) {
-                        String itemName = note.getItemName();
-                        String amount = String.valueOf(item.getAmount());
-                        String buyer = M.formatBuyer(p.getDisplayName(), p.getUniqueId());
-                        if(SettingManager.autoCollect) {
-                            seller.sendMessage(M.getFormatted("chat.sold-message.auto-collect", price,
+                    UUID sellerUuid = note.getPlayerUUID();
+                    String itemName = note.getItemName();
+                    String amount = String.valueOf(item.getAmount());
+                    String buyer = M.formatBuyer(p.getDisplayName(), p.getUniqueId());
+                    String priceStr = formatPriceForBroadcast(price);
+                    if (SettingManager.soldMessageEnabled) {
+                        if (SettingManager.autoCollect) {
+                            // Tell the seller across the cluster that their
+                            // auction sold (and the money was auto-collected).
+                            CrossServerMessenger.sendToPlayer(sellerUuid,
+                                    "chat.sold-message.auto-collect",
                                     "%buyer%", buyer,
                                     "%item%", itemName,
-                                    "%amount%", amount));
+                                    "%amount%", amount,
+                                    "%price%", priceStr);
                         } else {
-                            TextComponent component = new TextComponent(M.getFormatted("chat.sold-message.prefix", price,
+                            // For the click-to-collect variant we can only
+                            // deliver locally because clicking is a Bukkit-side
+                            // action that no other server can execute. Players
+                            // who happen to be on the same node still get the
+                            // component; other servers see a plain equivalent.
+                            Player seller = Bukkit.getPlayer(sellerUuid);
+                            if (seller != null && seller.isOnline()) {
+                                String prefix = M.getFormatted("chat.sold-message.prefix",
+                                        "%buyer%", buyer,
+                                        "%item%", itemName,
+                                        "%amount%", amount,
+                                        "%price%", priceStr);
+                                TextComponent component = new TextComponent(prefix);
+                                TextComponent click = new TextComponent(M.getFormatted("chat.sold-message.interaction"));
+                                click.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/ah view " + note.getNoteID().toString()));
+                                seller.spigot().sendMessage(component, click);
+                            }
+                            CrossServerMessenger.sendToPlayer(sellerUuid,
+                                    "chat.sold-message.prefix",
                                     "%buyer%", buyer,
                                     "%item%", itemName,
-                                    "%amount%", amount));
-                            TextComponent click = new TextComponent(M.getFormatted("chat.sold-message.interaction"));
-                            click.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/ah view " + note.getNoteID().toString()));
-                            seller.spigot().sendMessage(component, click);
+                                    "%amount%", amount,
+                                    "%price%", priceStr);
                         }
                     }
-                    if (SettingManager.autoCollect && Bukkit.getPlayer(note.getPlayerUUID()) != null) {
-                        instance.getScheduler().globalRegionalScheduler().run(() -> CollectSoldItemGUI.collect
-                                (Bukkit.getOfflinePlayer(note.getPlayerUUID()), note.getNoteID(), item.getAmount(), note.getSoldPrice())
-                        );
+                    if (SettingManager.autoCollect) {
+                        // Only the local server has Bukkit.getOfflinePlayer;
+                        // auto-collect relies on running on the same node as
+                        // the GUI, but the seller may also have a /ah view
+                        // pending item on another server. We trigger the local
+                        // collect if the seller happens to be here; other
+                        // nodes pick the item up on PlayerJoin (the existing
+                        // PlayerJoinCollectListener already handles the
+                        // cross-server flow via the MySQL+Redis state).
+                        Player localSeller = Bukkit.getPlayer(sellerUuid);
+                        if (localSeller != null && localSeller.isOnline()) {
+                            final Player sellerRef = localSeller;
+                            instance.getScheduler().globalRegionalScheduler().run(() ->
+                                    CollectSoldItemGUI.collect(sellerRef, note.getNoteID(),
+                                            item.getAmount(), note.getSoldPrice()));
+                        }
                     }
                 });
     }
@@ -159,6 +196,20 @@ public class ConfirmBuyGUI extends InventoryGUI{
                     Sounds.click(event);
                     AuctionHouse.getGuiManager().openGUI(new AuctionHouseGUI(c), p);
                 });
+    }
+
+    /**
+     * Pre-resolve the {@code %price%} placeholder against the server's
+     * formatted-price template so the value can be transported through Redis
+     * as a plain String and dropped into a {@code String...} placeholder list
+     * on the receiving server.
+     */
+    private static String formatPriceForBroadcast(double price) {
+        try {
+            return StringUtils.formatPrice(price, false);
+        } catch (Throwable ignored) {
+            return String.valueOf(price);
+        }
     }
 
 }

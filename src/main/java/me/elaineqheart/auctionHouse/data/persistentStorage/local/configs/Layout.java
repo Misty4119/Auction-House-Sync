@@ -7,6 +7,7 @@ import me.elaineqheart.auctionHouse.data.ram.ItemManager;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 
@@ -18,30 +19,48 @@ public class Layout extends Config {
 
     @Override
     public void setup() {
-        FileConfiguration c = getCustomFile();
-        if(c.getStringList("ah-layout").isEmpty() || c.getStringList("my-ah-layout").isEmpty()) {
-            LayoutGenerator.generate(c);
-            save();
+        FileConfiguration l = ConfigManager.layout.getCustomFile();
+        ahLayout = l.getStringList("ah-layout");
+        myAhLayout = l.getStringList("my-ah-layout");
+        if(ahLayout.isEmpty() || myAhLayout.isEmpty()) {
+            LayoutGenerator.generate(l);
+            ConfigManager.layout.save();
+            ahLayout = l.getStringList("ah-layout");
+            myAhLayout = l.getStringList("my-ah-layout");
         }
-        if (ConfigManager.backwardsCompatibility()) {
-            LayoutGenerator.backWardsCompatibility(c);
-            save();
-        }
-        ahLayout = c.getStringList("ah-layout");
-        myAhLayout = c.getStringList("my-ah-layout");
+    }
+
+    private void updateLayout(FileConfiguration l) {
+        l.set("ah-layout", Arrays.asList(
+                "# # # # # # # # #",
+                "# . . . . . . . #",
+                "# . . . . . . . #",
+                "# . . . . . . . #",
+                "# # # # # # # # #",
+                "s o # p r n # # m"));
+        l.set("my-ah-layout", Arrays.asList(
+                "# # # # # # # # #",
+                "# . . . . . . . #",
+                "# . . . . . . . #",
+                "# . . . . . . . #",
+                "# # # # # # # # #",
+                "b o # p r n # # i"));
+        ConfigManager.layout.save();
+        ahLayout = l.getStringList("ah-layout");
+        myAhLayout = l.getStringList("my-ah-layout");
     }
 
     public ItemStack getItem(String path) {
         if (items.get(path) != null) return items.get(path).clone();
-        ItemStack item = getCustomFile().getItemStack(path);
+        ItemStack item = ConfigManager.layout.getCustomFile().getItemStack(path);
         assert item != null : "The provided item at " + path + " is not serializable.";
         items.put(path, item);
         return item.clone();
     }
 
     public void saveItem(ItemStack item) {
-        getCustomFile().set("test", item);
-        save();
+        ConfigManager.layout.getCustomFile().set("test", item);
+        ConfigManager.layout.save();
     }
 
     @Override

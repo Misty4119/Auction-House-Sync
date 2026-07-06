@@ -5,8 +5,10 @@ import me.elaineqheart.auctionHouse.GUI.InventoryButton;
 import me.elaineqheart.auctionHouse.GUI.InventoryGUI;
 import me.elaineqheart.auctionHouse.GUI.other.Sounds;
 import me.elaineqheart.auctionHouse.data.persistentStorage.ItemNoteStorage;
+import me.elaineqheart.auctionHouse.data.persistentStorage.database.CrossServerMessenger;
 import me.elaineqheart.auctionHouse.data.persistentStorage.local.configs.M;
 import me.elaineqheart.auctionHouse.data.ram.*;
+import me.elaineqheart.auctionHouse.data.StringUtils;
 import me.elaineqheart.auctionHouse.pluginDependencies.VaultHook;
 import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.TextComponent;
@@ -123,18 +125,36 @@ public class ConfirmBidGUI extends InventoryGUI {
 
                     Set<UUID> bidders = note.getBidders();
                     bidders.remove(p.getUniqueId());
+                    String itemName = note.getItemName();
+                    String newBidderFormatted = M.formatPlayer(p.getDisplayName(), p.getUniqueId());
                     for(UUID id : bidders) {
-                        Player bidder = Bukkit.getPlayer(id);
-                        if(bidder == null) continue;
-                        double difference = price - note.getBid(bidder);
-                        bidder.sendMessage(M.getFormatted("chat.outbid.prefix", difference,
-                                "%player%", M.formatPlayer(p.getDisplayName(), p.getUniqueId()),
-                                "%item%", note.getItemName()));
-                        TextComponent click = new TextComponent(M.getFormatted("chat.outbid.interaction"));
-                        click.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/ah view " + note.getNoteID().toString()));
-                        bidder.spigot().sendMessage(click);
-                        if(AuctionViewGUI.currentGUIs.get(bidder) == null) continue;
-                        AuctionViewGUI.currentGUIs.get(bidder).update();
+                        double difference = price - note.getBid(Bukkit.getOfflinePlayer(id).getUniqueId() != null ? Bukkit.getPlayer(id) : p);
+                        // The difference is only meaningful for the bidder
+                        // currently on this server, but we always know the
+                        // delta against their previous bid (if any). Falls
+                        // back to the full new price otherwise.
+                        String diffStr = StringUtils.formatPrice(difference <= 0 ? price : difference, false);
+                        // Local delivery (with click-to-view component).
+                        Player localBidder = Bukkit.getPlayer(id);
+                        if (localBidder != null && localBidder.isOnline()) {
+                            String prefix = M.getFormatted("chat.outbid.prefix",
+                                    "%player%", newBidderFormatted,
+                                    "%item%", itemName,
+                                    "%price%", diffStr);
+                            localBidder.sendMessage(prefix);
+                            TextComponent click = new TextComponent(M.getFormatted("chat.outbid.interaction"));
+                            click.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/ah view " + note.getNoteID().toString()));
+                            localBidder.spigot().sendMessage(click);
+                            if(AuctionViewGUI.currentGUIs.get(localBidder) != null) {
+                                AuctionViewGUI.currentGUIs.get(localBidder).update();
+                            }
+                        }
+                        // Cross-server delivery (plain text equivalent).
+                        CrossServerMessenger.sendToPlayer(id,
+                                "chat.outbid.prefix",
+                                "%player%", newBidderFormatted,
+                                "%item%", itemName,
+                                "%price%", diffStr);
                     }
                     Player itemOwner = Bukkit.getPlayer(note.getPlayerUUID());
                     if (itemOwner != null && AuctionViewGUI.currentGUIs.get(itemOwner) != null) AuctionViewGUI.currentGUIs.get(itemOwner).update();

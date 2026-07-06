@@ -18,3 +18,76 @@ max-bid: -1                                 # limit the bid price; set to -1 to 
 last-bid-extra-time: 60                     # if the auction time is less than this when a bid is placed, it's set to this
 bid-increase-percent: 25                    # how much each bid has to increase at least
 use-adventure-text-minimessages: true       # setting this to false is a little bit lag friendlier
+
+# ============================================================
+# Multi-server database / cluster configuration
+# ============================================================
+# The plugin can run in three modes:
+#
+#   1) persistence=MYSQL, cache=REDIS (RECOMMENDED for clusters)
+#      -> All notes are durably stored in MySQL. Redis is a write-through
+#         cache that also publishes per-server pub/sub events, so every node
+#         sees the latest state immediately.
+#
+#   2) persistence=MYSQL, cache=JSON
+#      -> Notes survive restarts (MySQL is source of truth) but cross-server
+#         live sync is disabled. Only useful for single-server installs that
+#         want crash-safe persistence.
+#
+#   3) persistence=JSON, cache=REDIS
+#      -> Legacy mode; not recommended.
+#
+# Master setup for a multi-server network:
+#   - Stand up ONE shared MySQL instance (8.0+ recommended).
+#   - Stand up ONE shared Redis 8.0 instance.
+#   - Point every server at the SAME MySQL + Redis.
+#   - Give every server a UNIQUE `server-id` below.
+database:
+  # Where notes are durably persisted (restart-safe).
+  persistence: "MYSQL"
+  # What backs fast in-memory queries and broadcasts note mutations between servers.
+  cache: "REDIS"
+
+  mysql:
+    host: "127.0.0.1"
+    port: 3306
+    database: "auction_house"
+    username: "root"
+    password: ""
+    # HikariCP pool tuning
+    pool:
+      maximum-pool-size: 16
+      minimum-idle: 4
+      max-lifetime: 1800000     # 30 min (ms)
+      connection-timeout: 5000  # ms
+      # Optional JDBC params appended to the JDBC URL or as data-source properties.
+      use-ssl: false
+      parameters: "useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=UTF-8"
+
+  redis:
+    # Host of any Redis 8.0 server (cluster, sentinel or single-node is fine).
+    # Default port for Redis is 6379.
+    host: "127.0.0.1"
+    port: 6379
+    username: "default"
+    password: ""
+    database: 0
+    connection-timeout: 3000   # ms
+    so-timeout: 3000           # ms
+    # JedisPool sizing
+    pool:
+      max-total: 32
+      max-idle: 16
+      min-idle: 4
+    # Whether to publish / subscribe cache invalidations across the cluster.
+    pubsub-enabled: true
+    # Prefix for all keys + channels created by this plugin (keep unique per app).
+    key-prefix: "auction:"
+    channel: "auction:events"
+
+# Identifier of this individual server; used to ignore our own pub/sub echoes.
+# IMPORTANT: every node in the cluster MUST have a unique server-id. If two
+# nodes share the same id they will silently drop each other's events and
+# the cluster will not stay in sync. The default value below is a
+# placeholder — change it on every server (e.g. "ah-01", "ah-02", "lobby-1").
+server-id: "ah-server-CHANGE-ME"

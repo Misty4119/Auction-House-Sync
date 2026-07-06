@@ -8,6 +8,7 @@ import me.elaineqheart.auctionHouse.GUI.impl.CollectSoldItemGUI;
 import me.elaineqheart.auctionHouse.GUI.other.Sounds;
 import me.elaineqheart.auctionHouse.data.StringUtils;
 import me.elaineqheart.auctionHouse.data.persistentStorage.ItemNoteStorage;
+import me.elaineqheart.auctionHouse.data.persistentStorage.database.CrossServerMessenger;
 import me.elaineqheart.auctionHouse.data.persistentStorage.local.SettingManager;
 import me.elaineqheart.auctionHouse.data.persistentStorage.local.configs.Blacklist;
 import me.elaineqheart.auctionHouse.data.persistentStorage.local.configs.M;
@@ -161,32 +162,41 @@ public class AuctionHouseCommand implements CommandExecutor, TabCompleter {
                 ItemStack inputItem = item.clone();
                 inputItem.setAmount(amount);
                 item.setAmount(item.getAmount() - amount);
-                ItemNote note = ItemNoteStorage.createNote(p, inputItem, price, strings[0].equals(M.getFormatted("commands.bid")));
+                ItemNoteStorage.createNote(p, inputItem, price, strings[0].equals(M.getFormatted("commands.bid")));
                 p.sendMessage(M.getFormatted("command-feedback.auction", price));
-                
-                // Announce the new auction to all players who have announcements enabled
+
+                // Announce the new auction across the cluster. The local
+                // server respects auctionSetupTime so the announcement lines
+                // up with the GUI becoming interactable; remote servers
+                // receive the event immediately (they have no setup-time
+                // guarantee anyway, since a player there never opened the
+                // "/ah sell" GUI on this node).
                 if(SettingManager.auctionAnnouncementsEnabled) {
-                    String itemName = note.getItemName();
-                    String announcement = M.getFormatted(
-                            strings[0].equals(M.getFormatted("commands.sell")) ? "chat.auction-announcement" : "chat.bid-announcement",
-                            price,
-                            "%player%", M.formatPlayer(p.getDisplayName(), p.getUniqueId()),
-                            "%item%", itemName,
-                            "%amount%", String.valueOf(amount));
-                    if (SettingManager.auctionSetupTime == 0) {
-                        for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
-                            if (ConfigManager.playerPreferences.hasAnnouncementsEnabled(onlinePlayer.getUniqueId()) && !onlinePlayer.equals(p)) {
-                                onlinePlayer.sendMessage(announcement);
-                            }
-                        }
+                    String itemName = StringUtils.getItemName(inputItem);
+                    String messageKey = strings[0].equals(M.getFormatted("commands.sell"))
+                            ? "chat.auction-announcement" : "chat.bid-announcement";
+                    UUID sellerUuid = p.getUniqueId();
+                    // Pre-format %price% so we can use the String... overload of
+                    // M.getFormatted on every receiver (including the Redis
+                    // dispatch path, which only forwards String placeholders).
+                    String[] placeholderPairs = new String[]{
+                            "%player%", M.formatPlayer(p.getDisplayName(), sellerUuid),
+                            "%item%",   itemName,
+                            "%amount%", String.valueOf(amount),
+                            "%price%",  formatPricePlaceholder(price)
+                    };
+
+                    // Local delivery: respect the existing setup-time delay
+                    // so we stay backwards-compatible with single-server admins
+                    // who timing-tuned the announcement to match the GUI.
+                    long delayTicks = Math.max(0L, SettingManager.auctionSetupTime * 20L);
+                    Runnable deliver = () -> CrossServerMessenger.broadcastChat(
+                            messageKey, sellerUuid, placeholderPairs);
+                    if (delayTicks <= 0L) {
+                        deliver.run();
                     } else {
-                        instance.getScheduler().globalRegionalScheduler().runDelayed(() -> { //delay has to be > 0 in Folia
-                            for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
-                                if (ConfigManager.playerPreferences.hasAnnouncementsEnabled(onlinePlayer.getUniqueId()) && !onlinePlayer.equals(p)) {
-                                    onlinePlayer.sendMessage(announcement);
-                                }
-                            }
-                        }, SettingManager.auctionSetupTime * 20);
+                        instance.getScheduler().globalRegionalScheduler()
+                                .runDelayed(deliver, delayTicks);
                     }
                 }
 
@@ -257,22 +267,15 @@ public class AuctionHouseCommand implements CommandExecutor, TabCompleter {
                     // /ah pardon player:
                 } else if (strings.length == 2 && strings[0].equals(M.getFormatted("commands.pardon"))) {
                     String input = strings[1];
-                    ConfigurationSection section = ConfigManager.bannedPlayers.getCustomFile().getConfigurationSection("BannedPlayers");
-                    if (section == null) {
-                        p.sendMessage(M.getFormatted("command-feedback.no-banned-players"));
+                    // Route through MySQL+Redis when the cluster backend is
+                    // configured, so the pardon applies to every node. The
+                    // YAML path is preserved as a fallback for single-server
+                    // (database.persistence=JSON) installs.
+                    UUID pardonedUuid = ConfigManager.bannedPlayers.pardonByName(input);
+                    if (pardonedUuid != null) {
+                        p.sendMessage(M.getFormatted("command-feedback.pardon",
+                                "%player%", M.formatPlayer(input, pardonedUuid)));
                         return true;
-                    }
-                    for(String key : section.getKeys(false)) {
-                        String path = "BannedPlayers." + key + ".PlayerName";
-                        String playerName = ConfigManager.bannedPlayers.getCustomFile().getString(path);
-                        if (playerName == null) continue;
-                        if (playerName.equals(input)) {
-                            ConfigManager.bannedPlayers.getCustomFile().set("BannedPlayers." + key, null);
-                            ConfigManager.bannedPlayers.save();
-                            p.sendMessage(M.getFormatted("command-feedback.pardon",
-                                    "%player%", M.formatPlayer(playerName, UUID.fromString(key))));
-                            return true;
-                        }
                     }
                     p.sendMessage(M.getFormatted("command-feedback.not-banned"));
 
@@ -512,6 +515,21 @@ public class AuctionHouseCommand implements CommandExecutor, TabCompleter {
         }
         SettingManager.loadData();
         UpdateDisplay.reload(false);
+    }
+
+    /**
+     * Pre-resolve a {@code %price%} placeholder against the server's
+     * {@code placeholders.price} template so the result can be transported
+     * through Redis as a regular {@code name=value} pair and dropped into
+     * a {@code String...} placeholder list on the receiver.
+     */
+    private static String formatPricePlaceholder(double price) {
+        try {
+            return StringUtils.formatPrice(price, false);
+        } catch (Throwable ignored) {
+            // Last-resort so we never NPE the broadcast path.
+            return String.valueOf(price);
+        }
     }
 
     private static List<String> adminCommands() {

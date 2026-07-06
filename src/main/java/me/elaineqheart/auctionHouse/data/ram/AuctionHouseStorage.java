@@ -5,6 +5,7 @@ import me.elaineqheart.auctionHouse.data.persistentStorage.local.configs.Blackli
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class AuctionHouseStorage {
 
@@ -18,14 +19,26 @@ public class AuctionHouseStorage {
     private static final HashMap<List<Map<?, ?>>, List<UUID>> categories = new HashMap<>();
 
     private static void addToLists(ItemNote note) {
-        notes.put(note.getNoteID(), note);
-        itemNotes.add(note.getNoteID());
+        // Avoid duplicate entries when the same note is upserted twice (e.g.
+        // a cross-server UPSERT arrives while we already hold a local copy).
+        UUID id = note.getNoteID();
+        boolean alreadyPresent = notes.containsKey(id);
+        notes.put(id, note);
+        if (!alreadyPresent) itemNotes.add(id);
+        // Always drop the note from the sort indexes first, then re-add it
+        // at the end if it is still active. This keeps the lists idempotent
+        // even if a previous version of the same note was added with a
+        // different price/date.
+        sortedHighestPrice.remove(id);
+        sortedTimeLeft.remove(id);
+        sortedAlphabetical.remove(id);
+        categories.forEach((maps, uuids) -> uuids.remove(id));
         if(note.isTheoreticallyOnAuction() && !note.isExpired()) {
-            sortedHighestPrice.add(note.getNoteID());
-            sortedTimeLeft.add(note.getNoteID());
-            sortedAlphabetical.add(note.getNoteID());
+            sortedHighestPrice.add(id);
+            sortedTimeLeft.add(id);
+            sortedAlphabetical.add(id);
             categories.forEach((maps, uuids) -> {
-                if(!Blacklist.isBlacklisted(note.getItem(), maps)) uuids.add(note.getNoteID());
+                if(!Blacklist.isBlacklisted(note.getItem(), maps)) uuids.add(id);
             });
         }
     }
@@ -48,23 +61,53 @@ public class AuctionHouseStorage {
         updateSortedLists();
     }
 
+    /**
+     * Replace the entire in-memory mirror. Used by the MySQL hydration path
+     * at startup. All categories are dropped because category membership is
+     * derived from the (now-empty) whitelist cache, which the caller can
+     * re-register afterwards if needed.
+     */
     public static void set(ItemNote[] notes) {
         clear();
-        //Arrays.asList() links them
-        for(ItemNote note : notes) {
-            if(note == null) continue;
+        if (notes == null) return;
+        for (ItemNote note : notes) {
+            if (note == null) continue;
             addToLists(note);
         }
         updateBids();
         updateSortedLists();
     }
 
-    private static void clear() {
+    /**
+     * List-based overload of {@link #set(ItemNote[])} — preferred because the
+     * list version tolerates {@code null} elements without crashing.
+     */
+    public static void replaceAll(List<ItemNote> list) {
+        clear();
+        if (list == null) return;
+        for (ItemNote note : list) {
+            if (note == null) continue;
+            addToLists(note);
+        }
+        updateBids();
+        updateSortedLists();
+    }
+
+    /**
+     * Drop every note from the in-memory mirror. Public so the purge path
+     * can wipe RAM without going through the GUI.
+     */
+    public static void clear() {
         notes.clear();
         itemNotes.clear();
         sortedHighestPrice.clear();
         sortedTimeLeft.clear();
         sortedAlphabetical.clear();
+        sortedBids.clear();
+        sortedPlayers.clear();
+        // Drop categories too — they will be re-built lazily by callers that
+        // call addWhiteList(...) again.
+        categories.clear();
     }
 
     public static void remove(ItemNote item) {
@@ -95,24 +138,40 @@ public class AuctionHouseStorage {
     }
 
     public static List<ItemNote> getSortedList(ItemNoteStorage.SortMode mode, AhConfiguration c){
-        String search = c.getCurrentSearch();
-        List<UUID> list = new ArrayList<>();
+        String search = c == null ? "" : c.getCurrentSearch();
+        List<UUID> list;
         switch (mode) {
             case DATE -> list = sortedTimeLeft;
             case NAME -> list = sortedAlphabetical;
             case PRICE_ASC -> list = sortedHighestPrice;
             case PRICE_DESC -> list = sortedHighestPrice.reversed();
+            default -> list = sortedTimeLeft;
         }
-        return list.stream()
+        Stream<ItemNote> base = list.stream()
                 .map(notes::get)
-                .filter(note -> note.isTheoreticallyOnAuction() && !note.isExpired() && !note.isOnWaitingList())
-                .filter(note -> search.isEmpty() || note.getSearchIndex(c.getPlayer()).stream().anyMatch(string -> string.contains(search.toLowerCase())))
-                .filter(note -> switch (c.getBinFilter()) {
-                    case ALL -> true;
-                    case AUCTIONS_ONLY -> note.isBIDAuction();
-                    case BIN_ONLY ->  !note.isBIDAuction();
-                })
-                .collect(Collectors.toList());
+                .filter(Objects::nonNull)
+                .filter(note -> note.isTheoreticallyOnAuction() && !note.isExpired() && !note.isOnWaitingList());
+        if (search != null && !search.isEmpty() && c != null && c.getPlayer() != null) {
+            String lowered = search.toLowerCase(Locale.ROOT);
+            base = base.filter(note -> {
+                try {
+                    return note.getSearchIndex(c.getPlayer()).stream()
+                            .anyMatch(s -> s != null && s.contains(lowered));
+                } catch (Throwable t) {
+                    // Player locale may be missing — fall back to a permissive
+                    // match so the GUI never breaks for offline-render paths.
+                    return true;
+                }
+            });
+        }
+        if (c != null) {
+            base = base.filter(note -> switch (c.getBinFilter()) {
+                case ALL -> true;
+                case AUCTIONS_ONLY -> note.isBIDAuction();
+                case BIN_ONLY -> !note.isBIDAuction();
+            });
+        }
+        return base.collect(Collectors.toList());
     }
 
     public static void applyWhitelist(List<ItemNote> notes, List<Map<?, ?>> whitelist) {

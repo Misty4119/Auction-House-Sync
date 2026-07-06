@@ -2,7 +2,6 @@ package me.elaineqheart.auctionHouse.data.persistentStorage.local.data;
 
 import com.google.gson.Gson;
 import me.elaineqheart.auctionHouse.AuctionHouse;
-import me.elaineqheart.auctionHouse.data.persistentStorage.ItemNoteStorage;
 import me.elaineqheart.auctionHouse.data.ram.AuctionHouseStorage;
 import me.elaineqheart.auctionHouse.data.ram.ItemNote;
 
@@ -12,16 +11,13 @@ import java.nio.file.StandardCopyOption;
 
 public class JsonNoteStorage {
 
-    //This class is where the Note objects are managed
-    //gson is used to convert the Note objects into json Strings and backwards
     private static Gson gson;
 
     public static void createNote(ItemNote note){
-
         AuctionHouseStorage.add(note);
 
         try {
-            saveNotes();
+            saveNotesIfJson();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -31,25 +27,31 @@ public class JsonNoteStorage {
         AuctionHouseStorage.remove(note);
 
         try {
-            saveNotes();
+            saveNotesIfJson();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    public static void saveNotes() throws IOException {
+    /**
+     * Persist the in-memory list to disk only when the JSON backend is in use.
+     * When MySQL persistence is selected, this is a no-op.
+     */
+    public static void saveNotesIfJson() throws IOException {
+        if (me.elaineqheart.auctionHouse.data.persistentStorage.local.SettingManager.isMysqlPersistence()) {
+            return;
+        }
+        saveNotes();
+    }
 
+    public static void saveNotes() throws IOException {
         File file = new File(AuctionHouse.getInstance().getDataFolder().getAbsolutePath() + "/data/notes.json");
-        //if the parent file of the plugin doesn't exist, it has to be created
         file.getParentFile().mkdir();
         file.createNewFile();
-        //if append is true, it will append the json text and not overwrite the file
         Writer writer = new FileWriter(file, false);
         getGson().toJson(AuctionHouseStorage.getAll(), writer);
-        //flush = write data
         writer.flush();
         writer.close();
-
     }
 
     public static void loadNotes() throws IOException {
@@ -62,7 +64,7 @@ public class JsonNoteStorage {
         }
     }
 
-    private static void backwardsCompatibility() throws IOException {
+    public static void backwardsCompatibility() throws IOException {
         File file = new File(AuctionHouse.getInstance().getDataFolder().getAbsolutePath() + "/data/notes.json");
         File old = new File(AuctionHouse.getInstance().getDataFolder().getAbsolutePath() + "/notes.json");
         if (old.exists()) {
@@ -76,9 +78,9 @@ public class JsonNoteStorage {
     public static void purge() {
         AuctionHouseStorage.set(new ItemNote[0]);
         try {
-            saveNotes();
+            saveNotesIfJson();
             loadNotes();
-            ItemNoteStorage.reload();
+            // ItemNoteStorage.reload();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

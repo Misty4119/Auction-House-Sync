@@ -21,9 +21,20 @@ public class Bid {
         this.bid = bid;
     }
 
+    /** Constructor used by the persistence / sync layer. */
+    public Bid(UUID player, String playerName, Date date, double bid) {
+        this.player = player;
+        this.playerName = playerName;
+        this.date = date;
+        this.bid = bid;
+    }
+
     public UUID getPlayerID() {return player;}
     public String getPlayerName() {return playerName;}
     public double getPrice() {return bid;}
+    public Date getDate() { return date; }
+    /** Epoch milliseconds of when this bid was placed. Used by the sync layer. */
+    public long getTimeMs() { return date == null ? 0L : date.getTime(); }
     public String getTimeAgo() {
         long seconds = (new Date().getTime() - date.getTime()) / 1000;
         return StringUtils.getTimeTrimmed(seconds);

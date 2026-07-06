@@ -6,6 +6,7 @@ import me.elaineqheart.auctionHouse.data.persistentStorage.ItemNoteStorage;
 import me.elaineqheart.auctionHouse.data.persistentStorage.ItemStackConverter;
 import me.elaineqheart.auctionHouse.data.persistentStorage.local.SettingManager;
 import me.elaineqheart.auctionHouse.data.persistentStorage.local.data.ConfigManager;
+import me.elaineqheart.auctionHouse.data.ram.ItemManager;
 import me.elaineqheart.auctionHouse.pluginDependencies.LocaleAPIExtension;
 import org.bukkit.Bukkit;
 import org.bukkit.block.ShulkerBox;
@@ -57,9 +58,49 @@ public class ItemNote {
         ItemNoteStorage.addItem(noteID, ItemStackConverter.decode(itemData));
     }
 
+    /**
+     * Reconstruction constructor used when loading notes from MySQL. The
+     * {@code auctionTime} is taken verbatim from the row (not re-derived),
+     * matching how {@link #auctionTime} is intended to behave when notes are
+     * loaded back from disk.
+     */
+    public ItemNote(UUID noteId, String playerName, UUID playerId,
+                    String buyerName, UUID buyerId,
+                    String itemName, double price, Date dateCreated,
+                    ItemStack item, boolean isBidAuction,
+                    boolean isSold, int partiallySoldLeft,
+                    String adminMessage, long auctionTime) {
+        this.noteID = noteId;
+        this.playerName = playerName;
+        this.playerUUID = playerId;
+        this.buyerName = buyerName;
+        this.buyerUUID = buyerId;
+        this.itemName = itemName;
+        this.price = price;
+        this.dateCreated = dateCreated;
+        this.itemData = item == null ? null : ItemStackConverter.encode(item);
+        this.isBIDAuction = isBidAuction;
+        this.isSold = isSold;
+        this.partiallySoldAmountLeft = partiallySoldLeft;
+        this.adminMessage = adminMessage;
+        this.auctionTime = auctionTime;
+        if (item != null) ItemNoteStorage.addItem(noteID, item.clone());
+    }
+
     public ItemStack getItem(){
         if (ItemNoteStorage.getItem(noteID) != null) return ItemNoteStorage.getItem(noteID).clone();
-        ItemStack myItem = ItemStackConverter.decode(itemData);
+        ItemStack myItem = null;
+        if (itemData != null) {
+            try { myItem = ItemStackConverter.decode(itemData); }
+            catch (Throwable ignored) { myItem = null; }
+        }
+        if (myItem == null) {
+            // Last-resort fallback so callers never see a null item and so
+            // downstream code (MySQL NOT NULL columns, Redis upserts, GUI
+            // lookups) does not blow up.
+            myItem = ItemManager.createDirt();
+            itemData = ItemStackConverter.encode(myItem);
+        }
         ItemNoteStorage.addItem(noteID, myItem);
         return myItem.clone();
     }
@@ -135,8 +176,16 @@ public class ItemNote {
     //Getters and Setters
     public String getPlayerName() {return playerName;}
     public String getBuyerName() {return isBIDAuction ? getLastBidderName() : buyerName;}
-    public UUID getBuyerUUID() {return isBIDAuction ? getLastBidder() :
-            (buyerUUID != null ? buyerUUID : Bukkit.getOfflinePlayer(buyerName).getUniqueId());} //offline player backwards compatibility
+    public UUID getBuyerUUID() {
+        if (isBIDAuction) return getLastBidder();
+        if (buyerUUID != null) return buyerUUID;
+        if (buyerName == null || buyerName.isEmpty()) return null;
+        try {
+            return Bukkit.getOfflinePlayer(buyerName).getUniqueId();
+        } catch (Throwable t) {
+            return null;
+        }
+    } //offline player backwards compatibility
     public UUID getPlayerUUID() {return playerUUID;}
     public Date getDateCreated() {return dateCreated;}
     public double getPrice() {return price;}
@@ -146,9 +195,20 @@ public class ItemNote {
     public String getAdminMessage() {return adminMessage;}
     public UUID getNoteID() {return noteID;}
     public String getItemName() {
-        if (itemName == null) itemName = StringUtils.getItemName(getItem()); //backwards compatibility
+        if (itemName == null || itemName.isEmpty()) {
+            try {
+                itemName = StringUtils.getItemName(getItem());
+            } catch (Throwable ignored) {
+                itemName = StringUtils.RESET + "Unknown";
+            }
+        }
+        if (itemName == null || itemName.isEmpty()) {
+            itemName = StringUtils.RESET + "Unknown";
+        }
         return itemName;
     }
+    /** Raw Base64-encoded item payload (as written by {@link ItemStackConverter}). */
+    public String getItemData() { return itemData; }
     public List<Bid> getBidHistoryList() {
         if(bidHistory == null) bidHistory = new ArrayList<>();
         return bidHistory;
@@ -179,7 +239,25 @@ public class ItemNote {
         this.buyerName = buyerName;
         this.buyerUUID = id;
     }
+
+    /**
+     * Snapshot of the raw {@code auctionTime} field. Used by the persistence
+     * layer so the loaded row's value is preserved 1:1.
+     */
+    public long getAuctionTimeSnapshot() { return auctionTime; }
     public void addBid(Player player, double bid) {
+        // Deduplicate: if the same player is somehow already the latest
+        // bidder at the same price, skip the append. Keeps the bid list
+        // sane when the addBid path is re-invoked (e.g. via a replay).
+        if (bidHistory == null) bidHistory = new ArrayList<>();
+        if (!bidHistory.isEmpty()) {
+            Bid last = bidHistory.get(bidHistory.size() - 1);
+            if (last != null && last.getPlayerID() != null
+                    && last.getPlayerID().equals(player.getUniqueId())
+                    && last.getPrice() == bid) {
+                return;
+            }
+        }
         this.bidHistory.add(new Bid(player, new Date(), bid));
         this.price = bid;
         if (getTimeLeft() < SettingManager.lastBIDExtraTime) {
@@ -197,4 +275,29 @@ public class ItemNote {
     public void setAuctionTime(long time) {this.auctionTime = time;}
     public void setPartiallySoldAmountLeft(int amount) {this.partiallySoldAmountLeft = amount;}
     public void setPrice(double amount) {this.price = amount;}
+
+    /** Used by the multi-server sync layer to replace the bid list atomically. */
+    public void resetBidHistory() {
+        if (bidHistory == null) bidHistory = new ArrayList<>();
+        else bidHistory.clear();
+        if (claimedPlayers == null) claimedPlayers = new HashSet<>();
+        else claimedPlayers.clear();
+    }
+
+    /** Append a {@link Bid} to the history without touching player-refund side effects. */
+    public void appendBid(Bid bid) {
+        if (bidHistory == null) bidHistory = new ArrayList<>();
+        bidHistory.add(bid);
+    }
+
+    /** Used by the multi-server sync layer when replaying bids from a remote source. */
+    public void addBidFromDto(me.elaineqheart.auctionHouse.data.persistentStorage.database.RedisNoteStorage.BidDto dto) {
+        if (dto == null) return;
+        UUID id = null;
+        if (dto.playerId != null) {
+            try { id = UUID.fromString(dto.playerId); } catch (Exception ignored) {}
+        }
+        if (id == null) return;
+        bidHistory.add(new Bid(id, dto.playerName, new Date(dto.time), dto.price));
+    }
 }

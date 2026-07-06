@@ -1,6 +1,7 @@
 package me.elaineqheart.auctionHouse.data.persistentStorage.local.data;
 
 import me.elaineqheart.auctionHouse.AuctionHouse;
+import me.elaineqheart.auctionHouse.data.persistentStorage.local.SettingManager;
 import me.elaineqheart.auctionHouse.data.persistentStorage.local.configs.*;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -18,7 +19,7 @@ public class ConfigManager {
     public static BannedPlayers bannedPlayers = new BannedPlayers();
     public static Permissions permissions = new Permissions();
     public static Blacklist blacklist = new Blacklist();
-    public static Config categories = new Config();
+    public static Config categories = new Categories();
     public static PlayerPreferences playerPreferences = new PlayerPreferences();
     public static Layout layout = new Layout();
     public static TransactionLogger transactionLogger = new TransactionLogger();
@@ -98,11 +99,15 @@ public class ConfigManager {
     }
 
     private static List<Config> getList() {
-        if(list.isEmpty()) list.addAll(List.of(messages, displays, bannedPlayers, permissions, blacklist, categories, playerPreferences, layout, transactionLogger));
+        if(list.isEmpty()) list.addAll(List.of(messages, displays, bannedPlayers, permissions, blacklist, playerPreferences, layout, transactionLogger));
         return list;
     }
 
     private static void permissionsSetup() {
+        // Only seed the local YAML if meta-persistence is disabled. Once
+        // `database.persistence=MYSQL` is enabled the `ah_permissions` table
+        // is authoritative and the YAML should be empty.
+        if (SettingManager.useMetaPersistence()) return;
         if(permissions.getCustomFile().getConfigurationSection("auction-slots") == null) {
             permissions.getCustomFile().createSection("auction-slots");
             permissions.save();

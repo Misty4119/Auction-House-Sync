@@ -15,48 +15,32 @@ import java.util.Objects;
 
 public class StringUtils {
 
+    private static final net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer LEGACY =
+            net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.legacySection();
+    private static final net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer PLAIN =
+            net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText();
+
     /** Re-exported so other classes can build guaranteed-non-null names. */
     public static final String RESET = ChatColor.RESET.toString();
 
     public static String getTime(Long seconds, boolean convertDays) { //output example: 4h 23m 59s
-        String s;
-        String m;
-        String h;
-        String d;
+        StringBuilder s = new StringBuilder();
+        if (seconds == null || seconds < 0) seconds = 0L;
         int sec = (int) ((seconds)%60);
-        if(String.valueOf(sec).length()==1) {
-            s = '0' + String.valueOf(sec);
-        }else{
-            s = String.valueOf(sec);
-        }
         int min = (int) ((seconds/60)%60);
-        if(String.valueOf(min).length()==1) {
-            m = '0' + String.valueOf(min);
-        }else{
-            m = String.valueOf(min);
-        }
         int hours = convertDays ? (int) (seconds/60/60%24) : (int) (seconds/60/60);
-        if(String.valueOf(hours).length()==1) {
-            h = '0' + String.valueOf(hours);
-        }else{
-            h = String.valueOf(hours);
-        }
         int days = (int) (seconds / 60 / 60 / 24);
-        if(convertDays && days != 0) {
-            if (String.valueOf(days).length() == 1) {
-                d = '0' + String.valueOf(days);
-            } else {
-                d = String.valueOf(days);
-            }
-            return (ChatColor.YELLOW+d+SettingManager.formatTimeCharacters.charAt(0)+" "+
-                    h+SettingManager.formatTimeCharacters.charAt(1)+" "+
-                    m+SettingManager.formatTimeCharacters.charAt(2)+" "+
-                    s+SettingManager.formatTimeCharacters.charAt(3));
-        } else {
-            return (ChatColor.YELLOW+h+SettingManager.formatTimeCharacters.charAt(1)+" "+
-                    m+SettingManager.formatTimeCharacters.charAt(2)+" "+
-                    s+SettingManager.formatTimeCharacters.charAt(3));
+        if (convertDays && days != 0) {
+            s.append(days).append(SettingManager.formatTimeCharacters.charAt(0)).append(' ');
         }
+        s.append(pad(hours)).append(SettingManager.formatTimeCharacters.charAt(1)).append(' ');
+        s.append(pad(min)).append(SettingManager.formatTimeCharacters.charAt(2)).append(' ');
+        s.append(pad(sec)).append(SettingManager.formatTimeCharacters.charAt(3));
+        return s.toString();
+    }
+
+    private static String pad(int value) {
+        return value < 10 ? "0" + value : String.valueOf(value);
     }
     //dhms
 
@@ -71,7 +55,7 @@ public class StringUtils {
     }
 
     public static String formatNumber(double number) {
-        return M.getFormatted("placeholders.number", "%input%", formatNumberPlain(number));
+        return M.formatNumberPlaceholder(number);
     }
     public static String formatNumberPlain(double number) {
         // fallback for async threads
@@ -84,14 +68,12 @@ public class StringUtils {
     }
 
     public static String formatPrice(double price, boolean trimmed) {
-        return M.getFormatted("placeholders.price",
-                "%number%", formatNumber(trimmed ? StringUtils.getPriceTrimmed(price) : formatNumber(price)),
-                "%currency-symbol%", M.getFormatted("placeholders.currency-symbol"));
+        return M.formatPricePlaceholder(price, trimmed);
     }
 
     public static String getItemName(ItemStack item) {
         if (item == null) {
-            return ChatColor.RESET + "Unknown";
+            return "Unknown";
         }
         String name = null;
         try {
@@ -115,10 +97,42 @@ public class StringUtils {
             }
         }
         if (item.getItemMeta() != null && item.getItemMeta().hasDisplayName()) {
-            name = ChatColor.ITALIC + item.getItemMeta().getDisplayName();
+            net.kyori.adventure.text.Component displayName = item.getItemMeta().displayName();
+            if (displayName != null) {
+                name = PLAIN.serialize(displayName);
+            }
         }
-        return ChatColor.RESET + name;
+        return name;
     }
+
+    /**
+     * Strip the legacy {@code §}-section glyphs from a string. Used for
+     * cached/serialised item names that still carry old legacy codes and are
+     * about to be interpolated into a MiniMessage template.
+     *
+     * <p>All of Minecraft's legacy colour/format codes are explicitly listed so
+     * the regex is portable and never throws {@link java.util.regex.PatternSyntaxException}
+     * at runtime (e.g. if Java's regex engine ever tightens its character-range
+     * validation).</p>
+     */
+    public static String stripLegacySection(String input) {
+        if (input == null || input.isEmpty()) return input;
+        StringBuilder out = new StringBuilder(input.length());
+        int i = 0;
+        while (i < input.length()) {
+            char c = input.charAt(i);
+            if (c == '\u00A7' && i + 1 < input.length()
+                    && LEGACY_CODE_CHARS.indexOf(Character.toLowerCase(input.charAt(i + 1))) >= 0) {
+                i += 2;
+                continue;
+            }
+            out.append(c);
+            i++;
+        }
+        return out.toString();
+    }
+
+    private static final String LEGACY_CODE_CHARS = "0123456789abcdefklmnorx";
 
     public static double parsePositiveNumber(String input) {
         try{

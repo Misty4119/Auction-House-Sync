@@ -27,7 +27,7 @@ public class CollectExpiredItemGUI extends InventoryGUI {
 
     @Override
     protected Inventory createInventory() {
-        return Bukkit.createInventory(null,6*9, M.getFormatted("inventory-titles.collect-expired"));
+        return Bukkit.createInventory(null,6*9, M.getFormattedComponent("inventory-titles.collect-expired"));
     }
 
     @Override
@@ -82,7 +82,7 @@ public class CollectExpiredItemGUI extends InventoryGUI {
                     Player p = (Player) event.getWhoClicked();
                     //check if inventory is full
                     if(p.getInventory().firstEmpty() == -1){
-                        p.sendMessage(M.getFormatted("chat.inventory-full"));
+                        M.send(p, "chat.inventory-full");
                         Sounds.villagerDeny(event);
                         return;
                     }
@@ -100,18 +100,18 @@ public class CollectExpiredItemGUI extends InventoryGUI {
                         collected = ItemNoteStorage.collectExpiredAuctionItem(note); // delete it first!!
                     }
                     if (!collected) {
-                        p.sendMessage(M.getFormatted("chat.non-existent"));
+                        M.send(p, "chat.non-existent");
                         Sounds.villagerDeny(event);
                         return;
                     }
 
                     if(note.getAdminMessage() != null && !note.getAdminMessage().isEmpty()) { // expired by a moderator
                         if(note.getItem().equals(ItemManager.createDirt())) {
-                            p.sendMessage(M.getFormatted("chat.deleted-auction-by-admin", "%reason%", note.getAdminMessage()));
+                            M.send(p, "chat.deleted-auction-by-admin", "%reason%", note.getAdminMessage());
                             p.closeInventory();
                             Sounds.breakWood(event);
                         }else {
-                            p.sendMessage(M.getFormatted("chat.expired-auction-by-admin", "%reason%", note.getAdminMessage()));
+                            M.send(p, "chat.expired-auction-by-admin", "%reason%", note.getAdminMessage());
                             p.closeInventory();
                             p.getInventory().addItem(withdrawItem);
                             Sounds.experience(event);

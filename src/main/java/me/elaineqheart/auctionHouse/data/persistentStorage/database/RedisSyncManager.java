@@ -803,18 +803,19 @@ public final class RedisSyncManager {
         catch (Exception ex) { return; }
         if (p == null || p.messageKey == null) return;
 
+        if (p == null || p.messageKey == null) return;
+        if (M.isBlank(p.messageKey)) return;
+
         UUID exclude = null;
         if (p.targetUuid != null && !p.targetUuid.isEmpty()) {
             try { exclude = UUID.fromString(p.targetUuid); } catch (Exception ignored) {}
         }
 
-        // Resolve and send on the current (Bukkit) thread.
-        String formatted = renderChatMessage(p);
-        if (formatted == null) return;
+        String[] params = buildChatParams(p);
         for (Player online : Bukkit.getOnlinePlayers()) {
             if (exclude != null && online.getUniqueId().equals(exclude)) continue;
             if (!ConfigManager.playerPreferences.hasAnnouncementsEnabled(online.getUniqueId())) continue;
-            online.sendMessage(formatted);
+            M.send(online, p.messageKey, params);
         }
     }
 
@@ -828,39 +829,26 @@ public final class RedisSyncManager {
         try { p = GSON.fromJson(payload, ChatPayload.class); }
         catch (Exception ex) { return; }
         if (p == null || p.messageKey == null || p.targetUuid == null) return;
+        if (M.isBlank(p.messageKey)) return;
         UUID target;
         try { target = UUID.fromString(p.targetUuid); }
         catch (Exception ex) { return; }
         Player online = Bukkit.getPlayer(target);
         if (online == null) return;
-        String formatted = renderChatMessage(p);
-        if (formatted == null) return;
-        online.sendMessage(formatted);
+        M.send(online, p.messageKey, buildChatParams(p));
     }
 
-    /**
-     * Resolve the message key against the receiver's {@code messages.yml},
-     * applying positional placeholders. The placeholder names use Bukkit's
-     * {@code %name%} convention so all the helper formatters in
-     * {@link M#getFormatted(String, String...)} work unchanged.
-     */
-    private static String renderChatMessage(ChatPayload p) {
-        try {
-            int n = Math.min(
-                    p.placeholderNames == null ? 0 : p.placeholderNames.size(),
-                    p.placeholderValues == null ? 0 : p.placeholderValues.size());
-            String[] params = new String[n * 2];
-            int idx = 0;
-            for (int i = 0; i < n; i++) {
-                params[idx++] = p.placeholderNames.get(i);
-                params[idx++] = p.placeholderValues.get(i);
-            }
-            return M.getFormatted(p.messageKey, params);
-        } catch (Throwable t) {
-            AuctionHouse.getInstance().getLogger().fine(
-                    "Failed to render cross-server chat '" + p.messageKey + "': " + t.getMessage());
-            return null;
+    private static String[] buildChatParams(ChatPayload p) {
+        int n = Math.min(
+                p.placeholderNames == null ? 0 : p.placeholderNames.size(),
+                p.placeholderValues == null ? 0 : p.placeholderValues.size());
+        String[] params = new String[n * 2];
+        int idx = 0;
+        for (int i = 0; i < n; i++) {
+            params[idx++] = p.placeholderNames.get(i);
+            params[idx++] = p.placeholderValues.get(i);
         }
+        return params;
     }
 
     /** Dedicated blocking subscriber; runs on its own daemon thread. */

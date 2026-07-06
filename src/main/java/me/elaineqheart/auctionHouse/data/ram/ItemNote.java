@@ -199,13 +199,13 @@ public class ItemNote {
             try {
                 itemName = StringUtils.getItemName(getItem());
             } catch (Throwable ignored) {
-                itemName = StringUtils.RESET + "Unknown";
+                itemName = "Unknown";
             }
         }
         if (itemName == null || itemName.isEmpty()) {
-            itemName = StringUtils.RESET + "Unknown";
+            itemName = "Unknown";
         }
-        return itemName;
+        return StringUtils.stripLegacySection(itemName);
     }
     /** Raw Base64-encoded item payload (as written by {@link ItemStackConverter}). */
     public String getItemData() { return itemData; }

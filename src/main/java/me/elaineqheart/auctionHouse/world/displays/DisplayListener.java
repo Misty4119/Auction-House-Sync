@@ -46,7 +46,7 @@ public class DisplayListener implements Listener {
         if (isBaseBlock && p.getGameMode() == GameMode.CREATIVE && p.hasPermission(SettingManager.permissionModerate) && p.isSneaking()) {
             UpdateDisplay.removeDisplay(displayLoc, true);
         } else {
-            if (p.hasPermission(SettingManager.permissionModerate)) p.sendMessage(M.getFormatted("world.displays.break-instruction"));
+            if (p.hasPermission(SettingManager.permissionModerate)) M.send(p, "world.displays.break-instruction");
         }
     }
 

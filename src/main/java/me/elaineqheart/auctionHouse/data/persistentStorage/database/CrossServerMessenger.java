@@ -45,14 +45,13 @@ public final class CrossServerMessenger {
     public static void broadcastChat(String messageKey, UUID excludePlayer, String... placeholderPairs) {
         if (!SettingManager.auctionAnnouncementsEnabled) return;
 
-        String formatted = M.getFormatted(messageKey, placeholderPairs);
-        if (formatted == null) return;
+        if (M.isBlank(messageKey)) return;
 
         // 1) Local delivery.
         for (Player online : Bukkit.getOnlinePlayers()) {
             if (excludePlayer != null && online.getUniqueId().equals(excludePlayer)) continue;
             if (!ConfigManager.playerPreferences.hasAnnouncementsEnabled(online.getUniqueId())) continue;
-            online.sendMessage(formatted);
+            M.send(online, messageKey, placeholderPairs);
         }
 
         // 2) Cross-server delivery.
@@ -77,16 +76,24 @@ public final class CrossServerMessenger {
      */
     public static void sendToPlayer(UUID target, String messageKey, String... placeholderPairs) {
         if (target == null) return;
-        String formatted = M.getFormatted(messageKey, placeholderPairs);
-        if (formatted == null) return;
+        if (M.isBlank(messageKey)) return;
 
         // 1) Local delivery (if the player is on this node).
         Player local = Bukkit.getPlayer(target);
         if (local != null && local.isOnline()) {
-            local.sendMessage(formatted);
+            M.send(local, messageKey, placeholderPairs);
         }
 
         // 2) Cross-server delivery.
+        sendToPlayerRemoteOnly(target, messageKey, placeholderPairs);
+    }
+
+    /**
+     * Cross-server delivery only (skips local send). Use when the local
+     * player already received an interactive message on this node.
+     */
+    public static void sendToPlayerRemoteOnly(UUID target, String messageKey, String... placeholderPairs) {
+        if (target == null || M.isBlank(messageKey)) return;
         try {
             List<String> names = new ArrayList<>();
             List<String> values = new ArrayList<>();

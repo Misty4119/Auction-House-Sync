@@ -5,8 +5,8 @@ import me.elaineqheart.auctionHouse.data.persistentStorage.database.MySQLMetaSto
 import me.elaineqheart.auctionHouse.data.persistentStorage.database.RedisMetaCache;
 import me.elaineqheart.auctionHouse.data.persistentStorage.database.RedisSyncManager;
 import me.elaineqheart.auctionHouse.data.persistentStorage.local.SettingManager;
+import me.elaineqheart.auctionHouse.data.persistentStorage.local.configs.M;
 import me.elaineqheart.auctionHouse.data.persistentStorage.local.data.Config;
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 
 import java.util.Date;
@@ -99,9 +99,9 @@ public class BannedPlayers extends Config {
                 return false;
             }
             long banDuration = entry.banEndMs - currentTime;
-            p.sendMessage(ChatColor.WHITE + "You are temporarily banned for " + ChatColor.YELLOW + StringUtils.getTime(banDuration/1000, true)
-                    + ChatColor.WHITE + " from the auction house.");
-            p.sendMessage(ChatColor.GRAY + "Reason: " + entry.reason);
+            M.send(p, "command-feedback.banned.message",
+                    "%time%", StringUtils.getTime(banDuration / 1000, true));
+            M.send(p, "command-feedback.banned.reason", "%reason%", entry.reason);
             return true;
         }
         org.bukkit.configuration.file.FileConfiguration customFile = getCustomFile();
@@ -116,9 +116,10 @@ public class BannedPlayers extends Config {
             return false;
         }
         long banDuration = banEndDate.getTime() - currentTime;
-        p.sendMessage(ChatColor.WHITE + "You are temporarily banned for " + ChatColor.YELLOW + StringUtils.getTime(banDuration/1000, true)
-                + ChatColor.WHITE + " from the auction house.");
-        p.sendMessage(ChatColor.GRAY + "Reason: " + customFile.getString(path + ".Reason"));
+        M.send(p, "command-feedback.banned.message",
+                "%time%", StringUtils.getTime(banDuration / 1000, true));
+        M.send(p, "command-feedback.banned.reason",
+                "%reason%", customFile.getString(path + ".Reason"));
         return true;
     }
 

@@ -9,6 +9,11 @@ import me.elaineqheart.auctionHouse.data.persistentStorage.local.data.ConfigMana
 import me.elaineqheart.auctionHouse.data.ram.AhConfiguration;
 import me.elaineqheart.auctionHouse.data.ram.AuctionHouseStorage;
 import me.elaineqheart.auctionHouse.data.ram.ItemNote;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextColor;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.*;
 import org.bukkit.block.Sign;
 import org.bukkit.block.sign.Side;
@@ -69,7 +74,11 @@ public class UpdateDisplay implements Runnable {
             playerName = itemNote.getPlayerName();
             itemStack = itemNote.getItem();
             name = itemNote.getItemName();
-            if (itemStack.getItemMeta() != null && itemStack.getItemMeta().hasDisplayName()) name = ChatColor.ITALIC + itemStack.getItemMeta().getDisplayName();
+            if (itemStack.getItemMeta() != null && itemStack.getItemMeta().hasDisplayName()) {
+                name = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
+                        .plainText()
+                        .serialize(itemStack.getItemMeta().displayName());
+            }
         }
 
         if (updateItemEntity(data, itemStack) | updateTextEntity(data, name, playerName)) {
@@ -99,12 +108,16 @@ public class UpdateDisplay implements Runnable {
 
         String time = StringUtils.getTimeTrimmed(note.getTimeLeft());
         for (Sign sign : signs) {
-            sign.getSide(Side.FRONT).setLine(0, M.getFormatted("world.displays.line-0", note.getPrice(), "%time%", time));
-            sign.getSide(Side.FRONT).setLine(1, M.getFormatted("world.displays.line-1", note.getPrice(), "%time%", time));
-            sign.getSide(Side.FRONT).setLine(2, M.getFormatted("world.displays.line-2", note.getPrice(), "%time%", time));
-            sign.getSide(Side.FRONT).setLine(3, M.getFormatted("world.displays.line-3", note.getPrice(), "%time%", time));
+            sign.getSide(Side.FRONT).setLine(0, toSignLine(M.getFormattedComponent("world.displays.line-0", note.getPrice(), "%time%", time)));
+            sign.getSide(Side.FRONT).setLine(1, toSignLine(M.getFormattedComponent("world.displays.line-1", note.getPrice(), "%time%", time)));
+            sign.getSide(Side.FRONT).setLine(2, toSignLine(M.getFormattedComponent("world.displays.line-2", note.getPrice(), "%time%", time)));
+            sign.getSide(Side.FRONT).setLine(3, toSignLine(M.getFormattedComponent("world.displays.line-3", note.getPrice(), "%time%", time)));
             sign.update(true, false);
         }
+    }
+
+    private static String toSignLine(Component component) {
+        return LegacyComponentSerializer.legacySection().serialize(component);
     }
 
     private boolean updateItemEntity(DisplayNote data, ItemStack itemStack) { //true -> update DisplayNote
@@ -159,13 +172,21 @@ public class UpdateDisplay implements Runnable {
         }
 
         if (data.sortType.equals("highest_price")) {
-            data.text.setText(ChatColor.YELLOW + "#" + data.rank + " " + ChatColor.RESET + itemName + ChatColor.GRAY + "\n" +
-                    M.getFormatted("world.displays.by-player", "%player%", playerName));
+            data.text.text(buildTextDisplayMessage(data.rank, itemName, playerName, NamedTextColor.YELLOW));
         } else if (data.sortType.equals("ending_soon")) {
-            data.text.setText(ChatColor.GREEN + "#" + data.rank + " " + ChatColor.RESET + itemName + ChatColor.GRAY + "\n" +
-                    M.getFormatted("world.displays.by-player", "%player%", playerName));
+            data.text.text(buildTextDisplayMessage(data.rank, itemName, playerName, NamedTextColor.GREEN));
         }
         return reload;
+    }
+
+    private static Component buildTextDisplayMessage(int rank, String itemName, String playerName,
+                                                     TextColor rankColour) {
+        Component rankComponent = Component.text("#" + rank).color(rankColour);
+        Component itemComponent = Component.text(itemName == null ? "" : itemName)
+                .decoration(TextDecoration.ITALIC, true)
+                .color(NamedTextColor.WHITE);
+        Component byPlayer = M.getFormattedComponent("world.displays.by-player", "%player%", playerName);
+        return Component.empty().append(rankComponent).append(Component.space()).append(itemComponent).appendNewline().append(byPlayer);
     }
 
     private static Sign[] getSigns(Location loc, int rank, String sortType) {

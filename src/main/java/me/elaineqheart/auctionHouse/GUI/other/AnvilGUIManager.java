@@ -35,7 +35,7 @@ public class AnvilGUIManager implements Listener {
     }
 
     public void open(Player player, String inventoryTitleKey, AnvilHandler handler) {
-        AnvilView view = MenuType.ANVIL.create(player, M.getFormatted(inventoryTitleKey));
+        AnvilView view = MenuType.ANVIL.create(player, M.getFormattedComponent(inventoryTitleKey));
         view.setMaximumRepairCost(0);
         view.setItem(0, ItemManager.emptyPaper);
         registerHandledInventory(view.getTopInventory(), handler);

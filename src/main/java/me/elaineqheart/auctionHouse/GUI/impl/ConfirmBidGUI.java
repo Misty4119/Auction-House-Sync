@@ -10,8 +10,6 @@ import me.elaineqheart.auctionHouse.data.persistentStorage.local.configs.M;
 import me.elaineqheart.auctionHouse.data.ram.*;
 import me.elaineqheart.auctionHouse.data.StringUtils;
 import me.elaineqheart.auctionHouse.pluginDependencies.VaultHook;
-import net.md_5.bungee.api.chat.ClickEvent;
-import net.md_5.bungee.api.chat.TextComponent;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -38,7 +36,7 @@ public class ConfirmBidGUI extends InventoryGUI {
 
     @Override
     protected Inventory createInventory() {
-        return Bukkit.createInventory(null,3*9, M.getFormatted("inventory-titles.confirm-bid"));
+        return Bukkit.createInventory(null,3*9, M.getFormattedComponent("inventory-titles.confirm-bid"));
     }
 
     @Override
@@ -82,79 +80,78 @@ public class ConfirmBidGUI extends InventoryGUI {
 
                     ItemNote test = AuctionHouseStorage.getNote(note.getNoteID());
                     if (test == null) {
-                        p.sendMessage(M.getFormatted("chat.non-existent2"));
+                        M.send(p, "chat.non-existent2");
                         Sounds.villagerDeny(event);
                         return;
                     }
                     if(!test.isTheoreticallyOnAuction()) {
-                        p.sendMessage(M.getFormatted("chat.already-sold2"));
+                        M.send(p, "chat.already-sold2");
                         Sounds.villagerDeny(event);
                         return;
                     }
                     if(test.isExpired()) {
-                        event.getWhoClicked().sendMessage(M.getFormatted("chat.expired"));
+                        M.send((Player) event.getWhoClicked(), "chat.expired");
                         Sounds.villagerDeny(event);
                         return;
                     }
                     if ((note.hasBidHistory() ? Bid.nextMinBid(note.getPrice()) : note.getPrice()) > price) {
-                        p.sendMessage(M.getFormatted("chat.already-sold3"));
+                        M.send(p, "chat.already-sold3");
                         Sounds.villagerDeny(event);
                         return;
                     }
                     double increase = price - note.getBid(p);
                     Economy eco = VaultHook.getEconomy();
-                    if (eco.getBalance(p) < increase) { //extra check to make sure that they have enough coins
-                        p.sendMessage(M.getFormatted("chat.not-enough-money"));
+                    if (eco.getBalance(p) < increase) {
+                        M.send(p, "chat.not-enough-money");
                         Sounds.villagerDeny(event);
                         return;
                     }
 
                     boolean success = ItemNoteStorage.addBidIfOnAuction(note, p, price);
                     if (!success) {
-                        p.sendMessage(M.getFormatted("chat.non-existent"));
+                        M.send(p, "chat.non-existent");
                         Sounds.villagerDeny(event);
                         return;
                     }
 
                     eco.withdrawPlayer(p, increase);
                     Sounds.experience(event);
-                    p.sendMessage(M.getFormatted("chat.placed-bid", price,
-                            "%item%", note.getItemName()));
+                    M.send(p, "chat.placed-bid", price, "%item%", note.getItemName());
                     if (c.shouldKeepOpen()) AuctionHouse.getGuiManager().openGUI(new AuctionViewGUI(note, c, 0, goBackToAuctionHouse ? AhConfiguration.View.AUCTION_HOUSE : AhConfiguration.View.MY_AUCTIONS), p);
-                    else instance.getScheduler().globalRegionalScheduler().run(p::closeInventory);
+                    else instance.getScheduler().globalRegionalScheduler().run((Runnable) p::closeInventory);
 
                     Set<UUID> bidders = note.getBidders();
                     bidders.remove(p.getUniqueId());
                     String itemName = note.getItemName();
                     String newBidderFormatted = M.formatPlayer(p.getDisplayName(), p.getUniqueId());
+                    String viewCommand = "/ah view " + note.getNoteID();
                     for(UUID id : bidders) {
                         double difference = price - note.getBid(Bukkit.getOfflinePlayer(id).getUniqueId() != null ? Bukkit.getPlayer(id) : p);
-                        // The difference is only meaningful for the bidder
-                        // currently on this server, but we always know the
-                        // delta against their previous bid (if any). Falls
-                        // back to the full new price otherwise.
                         String diffStr = StringUtils.formatPrice(difference <= 0 ? price : difference, false);
-                        // Local delivery (with click-to-view component).
                         Player localBidder = Bukkit.getPlayer(id);
                         if (localBidder != null && localBidder.isOnline()) {
-                            String prefix = M.getFormatted("chat.outbid.prefix",
+                            M.sendClickable(localBidder,
+                                    "chat.outbid.prefix",
+                                    "chat.outbid.interaction",
+                                    viewCommand,
                                     "%player%", newBidderFormatted,
                                     "%item%", itemName,
                                     "%price%", diffStr);
-                            localBidder.sendMessage(prefix);
-                            TextComponent click = new TextComponent(M.getFormatted("chat.outbid.interaction"));
-                            click.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/ah view " + note.getNoteID().toString()));
-                            localBidder.spigot().sendMessage(click);
+                            CrossServerMessenger.sendToPlayerRemoteOnly(id,
+                                    "chat.outbid.prefix",
+                                    "%player%", newBidderFormatted,
+                                    "%item%", itemName,
+                                    "%price%", diffStr);
                             if(AuctionViewGUI.currentGUIs.get(localBidder) != null) {
                                 AuctionViewGUI.currentGUIs.get(localBidder).update();
                             }
+                        } else {
+                            CrossServerMessenger.sendToPlayer(id,
+                                    "chat.outbid.prefix",
+                                    "%player%", newBidderFormatted,
+                                    "%item%", itemName,
+                                    "%price%", diffStr);
                         }
-                        // Cross-server delivery (plain text equivalent).
-                        CrossServerMessenger.sendToPlayer(id,
-                                "chat.outbid.prefix",
-                                "%player%", newBidderFormatted,
-                                "%item%", itemName,
-                                "%price%", diffStr);
                     }
                     Player itemOwner = Bukkit.getPlayer(note.getPlayerUUID());
                     if (itemOwner != null && AuctionViewGUI.currentGUIs.get(itemOwner) != null) AuctionViewGUI.currentGUIs.get(itemOwner).update();

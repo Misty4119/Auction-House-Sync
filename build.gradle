@@ -5,10 +5,14 @@ plugins {
 }
 
 group = 'me.elaineqheart'
-version = '1.5'
+version = '2.0.0'
 
 repositories {
     mavenCentral()
+    maven {
+        name = "papermc"
+        url = "https://repo.papermc.io/repository/maven-public/"
+    }
     maven {
         name = "spigotmc-repo"
         url = "https://hub.spigotmc.org/nexus/content/repositories/snapshots/"
@@ -18,19 +22,22 @@ repositories {
         url = "https://oss.sonatype.org/content/groups/public/"
     }
     maven { url = 'https://jitpack.io' }
-    maven { url = 'https://repo.example.com/repository/maven-public/' }
     maven { url = "https://repo.extendedclip.com/content/repositories/placeholderapi/" }
     maven { url = 'https://mvn-repo.arim.space/lesser-gpl3/' }
 }
 
 //alt + ins
 dependencies {
-    compileOnly("org.spigotmc:spigot-api:1.21.4-R0.1-SNAPSHOT")
-    compileOnly("com.github.MilkBowl:VaultAPI:1.7")
+    compileOnly("io.papermc.paper:paper-api:1.21.4-R0.1-SNAPSHOT")
+    compileOnly("com.github.MilkBowl:VaultAPI:1.7") {
+        exclude group: "org.bukkit", module: "bukkit"
+    }
     compileOnly("com.github.Unp1xelt:Locale-API:1.0")
     compileOnly("me.clip:placeholderapi:2.11.6")
+    implementation("net.kyori:adventure-api:4.25.0")
     implementation("net.kyori:adventure-text-minimessage:4.25.0")
     implementation("net.kyori:adventure-text-serializer-legacy:4.25.0")
+    implementation("net.kyori:adventure-text-serializer-plain:4.25.0")
     implementation("space.arim.morepaperlib:morepaperlib:0.4.4")
 
     // Multi-server database support: MySQL (persistence) + Redis 8.0 (real-time sync / cache)

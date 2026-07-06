@@ -42,12 +42,11 @@ public class PlayerJoinCollectListener implements Listener {
         boolean success = CollectSoldItemGUI.collect(p, note.getNoteID(), amount, note.getSoldPrice());
         if (!success || !p.isOnline()) return;
         if (SettingManager.soldMessageEnabled) {
-            String message = M.getFormatted("chat.sold-message.auto-collect",
+            M.send(p, "chat.sold-message.auto-collect",
                     "%buyer%", M.formatBuyer(note.getBuyerName(), note.getBuyerUUID()),
                     "%item%", note.getItemName(),
                     "%amount%", String.valueOf(amount),
                     "%price%", priceStr);
-            p.sendMessage(message);
         }
     }
 

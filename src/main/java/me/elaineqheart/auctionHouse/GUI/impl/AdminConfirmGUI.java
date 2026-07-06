@@ -32,7 +32,7 @@ public class AdminConfirmGUI extends InventoryGUI{
 
     @Override
     protected Inventory createInventory() {
-        return Bukkit.createInventory(null,3*9, M.getFormatted("inventory-titles.admin-confirm-gui"));
+        return Bukkit.createInventory(null,3*9, M.getFormattedComponent("inventory-titles.admin-confirm-gui"));
     }
 
     @Override
@@ -87,18 +87,18 @@ public class AdminConfirmGUI extends InventoryGUI{
                     Player p = (Player) event.getWhoClicked();
                     ItemNote test = AuctionHouseStorage.getNote(note.getNoteID());
                     if (test == null) {
-                        p.sendMessage(M.getFormatted("chat.non-existent2"));
+                        M.send(p, "chat.non-existent2");
                         Sounds.villagerDeny(event);
                         return;
                     }
                     if (!test.isTheoreticallyOnAuction() || test.getCurrentAmount() < note.getCurrentAmount()) {
-                        p.sendMessage(M.getFormatted("chat.already-sold"));
+                        M.send(p, "chat.already-sold");
                         Sounds.villagerDeny(event);
                         return;
                     }
                     boolean success = ItemNoteStorage.adminConfirmExpireItem(note, reason);
                     if (!success) {
-                        p.sendMessage(M.getFormatted("chat.non-existent"));
+                        M.send(p, "chat.non-existent");
                         Sounds.villagerDeny(event);
                         return;
                     }
@@ -106,7 +106,7 @@ public class AdminConfirmGUI extends InventoryGUI{
                     p.closeInventory();
                     Sounds.experience(event);
                     Sounds.breakWood(event);
-                    p.sendMessage(M.getFormatted("chat.admin-expire-auction", "%reason%", reason));
+                    M.send(p, "chat.admin-expire-auction", "%reason%", reason);
                 });
     }
     private InventoryButton confirmDeleteItem() {
@@ -116,26 +116,26 @@ public class AdminConfirmGUI extends InventoryGUI{
                     Player p = (Player) event.getWhoClicked();
                     //check if inventory is full
                     if(p.getInventory().firstEmpty() == -1) {
-                        p.sendMessage(M.getFormatted("chat.inventory-full"));
+                        M.send(p, "chat.inventory-full");
                         Sounds.villagerDeny(event);
                         return;
                     }
                     //check if the item hasn't been sold yet
                     ItemNote test = AuctionHouseStorage.getNote(note.getNoteID());
                     if (test == null) {
-                        p.sendMessage(M.getFormatted("chat.non-existent2"));
+                        M.send(p, "chat.non-existent2");
                         Sounds.villagerDeny(event);
                         return;
                     }
                     if (!test.isTheoreticallyOnAuction() || test.getCurrentAmount() < note.getItem().getAmount()) {
-                        p.sendMessage(M.getFormatted("chat.already-sold"));
+                        M.send(p, "chat.already-sold");
                         Sounds.villagerDeny(event);
                         return;
                     }
                     ItemStack item = note.getItem();
                     boolean success = ItemNoteStorage.adminConfirmDeleteItem(note, reason);
                     if (!success) {
-                        p.sendMessage(M.getFormatted("chat.non-existent"));
+                        M.send(p, "chat.non-existent");
                         Sounds.villagerDeny(event);
                         return;
                     }
@@ -144,7 +144,7 @@ public class AdminConfirmGUI extends InventoryGUI{
                     p.closeInventory();
                     Sounds.experience(event);
                     Sounds.breakWood(event);
-                    p.sendMessage(M.getFormatted("chat.admin-delete-auction","%reason%", reason));
+                    M.send(p, "chat.admin-delete-auction","%reason%", reason);
                 });
     }
     private InventoryButton cancel(){

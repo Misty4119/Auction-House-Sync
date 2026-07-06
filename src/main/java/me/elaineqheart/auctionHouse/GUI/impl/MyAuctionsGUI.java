@@ -53,7 +53,7 @@ public class MyAuctionsGUI extends InventoryGUI implements Runnable{
 
     @Override
     protected Inventory createInventory() {
-        return Bukkit.createInventory(null,ConfigManager.layout.myAhLayout.size()*9, M.getFormatted("inventory-titles.my-auctions"));
+        return Bukkit.createInventory(null,ConfigManager.layout.myAhLayout.size()*9, M.getFormattedComponent("inventory-titles.my-auctions"));
     }
 
     @Override
@@ -248,8 +248,8 @@ public class MyAuctionsGUI extends InventoryGUI implements Runnable{
         ItemStack item = ConfigManager.layout.getItem("n");
         ItemMeta meta = item.getItemMeta();
         assert meta != null;
-        meta.setItemName(M.getFormatted("items.next-page.name"));
-        meta.setLore(M.getLoreList("items.next-page.lore",
+        meta.displayName(M.getFormattedComponent("items.next-page.name"));
+        meta.lore(M.getLoreComponents("items.next-page.lore",
                 "%page%", String.valueOf(c.getMyCurrentPage()+1),
                 "%pages%", String.valueOf(pages+1)));
         item.setItemMeta(meta);
@@ -266,8 +266,8 @@ public class MyAuctionsGUI extends InventoryGUI implements Runnable{
         ItemStack item = ConfigManager.layout.getItem("p");
         ItemMeta meta = item.getItemMeta();
         assert meta != null;
-        meta.setItemName(M.getFormatted("items.previous-page.name"));
-        meta.setLore(M.getLoreList("items.previous-page.lore",
+        meta.displayName(M.getFormattedComponent("items.previous-page.name"));
+        meta.lore(M.getLoreComponents("items.previous-page.lore",
                 "%page%", String.valueOf(c.getMyCurrentPage()+1),
                 "%pages%", String.valueOf((noteSize-1)/screenSize+1)));
         item.setItemMeta(meta);

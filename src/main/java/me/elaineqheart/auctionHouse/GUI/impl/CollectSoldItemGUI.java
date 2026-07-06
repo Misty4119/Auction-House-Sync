@@ -41,7 +41,7 @@ public class CollectSoldItemGUI extends InventoryGUI {
 
     @Override
     protected Inventory createInventory() {
-        return Bukkit.createInventory(null,6*9, M.getFormatted("inventory-titles.collect-sold"));
+        return Bukkit.createInventory(null,6*9, M.getFormattedComponent("inventory-titles.collect-sold"));
     }
 
     @Override
@@ -94,9 +94,6 @@ public class CollectSoldItemGUI extends InventoryGUI {
                 .creator(player -> ItemManager.collectSoldItem(getProfit(price)))
                 .consumer(event -> {
                     Player p = (Player) event.getWhoClicked();
-                    String message = M.getFormatted("chat.collect-sold-auction", getProfit(price),
-                            "%amount%", String.valueOf(item.getAmount()),
-                            "%item%", note.getItemName());
 
                     boolean success = collect(p, note.getNoteID(), item.getAmount(), price);
                     AuctionHouse.getGuiManager().openGUI(p, c, goBackTo);
@@ -104,7 +101,9 @@ public class CollectSoldItemGUI extends InventoryGUI {
                     if (!success) return;
 
                     Sounds.experience(event);
-                    p.sendMessage(message);
+                    M.send(p, "chat.collect-sold-auction", getProfit(price),
+                            "%amount%", String.valueOf(item.getAmount()),
+                            "%item%", note.getItemName());
                 });
     }
 
@@ -112,7 +111,7 @@ public class CollectSoldItemGUI extends InventoryGUI {
         ItemNote note = AuctionHouseStorage.getNote(noteID);
         boolean success = ItemNoteStorage.collectSoldAuctionItem(note, itemAmount, price);
         if (!success) {
-            if (p instanceof Player onlinePlayer) onlinePlayer.sendMessage(M.getFormatted("chat.non-existent"));
+            if (p instanceof Player onlinePlayer) M.send(onlinePlayer, "chat.non-existent");
             return false;
         }
         Economy eco = VaultHook.getEconomy();

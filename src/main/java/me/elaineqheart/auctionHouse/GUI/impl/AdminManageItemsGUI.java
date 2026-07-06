@@ -41,7 +41,7 @@ public class AdminManageItemsGUI extends InventoryGUI implements Runnable{
 
     @Override
     protected Inventory createInventory() {
-        return Bukkit.createInventory(null,6*9, M.getFormatted("inventory-titles.admin-menu"));
+        return Bukkit.createInventory(null,6*9, M.getFormattedComponent("inventory-titles.admin-menu"));
     }
 
     @Override

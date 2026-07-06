@@ -42,7 +42,7 @@ public class CancelAuctionGUI extends InventoryGUI implements Runnable{
 
     @Override
     protected Inventory createInventory() {
-        return Bukkit.createInventory(null,6*9, M.getFormatted("inventory-titles.cancel-auction"));
+        return Bukkit.createInventory(null,6*9, M.getFormattedComponent("inventory-titles.cancel-auction"));
     }
 
     @Override
@@ -106,13 +106,13 @@ public class CancelAuctionGUI extends InventoryGUI implements Runnable{
                     Player p = (Player) event.getWhoClicked();
                     //check if inventory is full
                     if(p.getInventory().firstEmpty() == -1){
-                        p.sendMessage(M.getFormatted("chat.inventory-full"));
+                        M.send(p, "chat.inventory-full");
                         Sounds.villagerDeny(event);
                         return;
                     }
                     //ItemNote test = NoteStorage.getNote(note.getNoteID().toString());
                     if (note.isSold()) {
-                        p.sendMessage(M.getFormatted("chat.already-sold2"));
+                        M.send(p, "chat.already-sold2");
                         Sounds.villagerDeny(event);
                         return;
                     }
@@ -121,7 +121,7 @@ public class CancelAuctionGUI extends InventoryGUI implements Runnable{
                     p.getInventory().addItem(note.getItem());
                     ItemNoteStorage.deleteCancelNote(note);
                     AuctionHouse.getGuiManager().openGUI(p, c, goBackTo);
-                    p.sendMessage(M.getFormatted("chat.auction-canceled"));
+                    M.send(p, "chat.auction-canceled");
                 });
     }
 

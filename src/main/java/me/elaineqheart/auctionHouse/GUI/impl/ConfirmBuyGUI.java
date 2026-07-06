@@ -14,8 +14,6 @@ import me.elaineqheart.auctionHouse.data.ram.AuctionHouseStorage;
 import me.elaineqheart.auctionHouse.data.ram.ItemManager;
 import me.elaineqheart.auctionHouse.data.ram.ItemNote;
 import me.elaineqheart.auctionHouse.pluginDependencies.VaultHook;
-import net.md_5.bungee.api.chat.ClickEvent;
-import net.md_5.bungee.api.chat.TextComponent;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -42,7 +40,7 @@ public class ConfirmBuyGUI extends InventoryGUI{
 
     @Override
     protected Inventory createInventory() {
-        return Bukkit.createInventory(null,3*9, M.getFormatted("inventory-titles.auction-view"));
+        return Bukkit.createInventory(null,3*9, M.getFormattedComponent("inventory-titles.auction-view"));
     }
 
     @Override
@@ -83,40 +81,38 @@ public class ConfirmBuyGUI extends InventoryGUI{
                 .creator(player -> ItemManager.createConfirm(price))
                 .consumer(event -> {
                     Player p = (Player) event.getWhoClicked();
-                    //check if inventory is full
                     if(p.getInventory().firstEmpty() == -1) {
-                        p.sendMessage(M.getFormatted("chat.inventory-full"));
+                        M.send(p, "chat.inventory-full");
                         Sounds.villagerDeny(event);
                         return;
                     }
 
                     ItemNote test = AuctionHouseStorage.getNote(note.getNoteID());
                     if (test == null) {
-                        p.sendMessage(M.getFormatted("chat.non-existent2"));
+                        M.send(p, "chat.non-existent2");
                         Sounds.villagerDeny(event);
                         return;
                     }
                     if (!test.isTheoreticallyOnAuction() || test.getCurrentAmount() < item.getAmount()) {
-                        p.sendMessage(M.getFormatted("chat.already-sold2"));
+                        M.send(p, "chat.already-sold2");
                         Sounds.villagerDeny(event);
                         return;
                     }
                     if (test.isExpired()) {
-                        p.sendMessage(M.getFormatted("chat.expired"));
+                        M.send(p, "chat.expired");
                         Sounds.villagerDeny(event);
                         return;
                     }
                     Economy eco = VaultHook.getEconomy();
                     instance.getScheduler().globalRegionalScheduler().run(() -> AuctionHouse.getGuiManager().openGUI(new AuctionHouseGUI(c), p));
-                    if (eco.getBalance(p) < price) { //extra check to make sure that they have enough coins
-                        p.sendMessage(M.getFormatted("chat.not-enough-money"));
+                    if (eco.getBalance(p) < price) {
+                        M.send(p, "chat.not-enough-money");
                         Sounds.villagerDeny(event);
                         return;
                     }
-                    //concurrent check
                     boolean claimed = ItemNoteStorage.setSoldIfOnAuction(note, p, item.getAmount(), price);
                     if (!claimed) {
-                        p.sendMessage(M.getFormatted("chat.already-sold"));
+                        M.send(p, "chat.already-sold");
                         Sounds.villagerDeny(event);
                         return;
                     }
@@ -125,9 +121,9 @@ public class ConfirmBuyGUI extends InventoryGUI{
                     Sounds.experience(event);
                     p.getInventory().addItem(item);
 
-                    p.sendMessage(M.getFormatted("chat.purchase-auction",
+                    M.send(p, "chat.purchase-auction",
                             "%seller%", M.formatSeller(note.getPlayerName(), note.getPlayerUUID()),
-                            "%item%", note.getItemName()));
+                            "%item%", note.getItemName());
                     UUID sellerUuid = note.getPlayerUUID();
                     String itemName = note.getItemName();
                     String amount = String.valueOf(item.getAmount());
@@ -135,8 +131,6 @@ public class ConfirmBuyGUI extends InventoryGUI{
                     String priceStr = formatPriceForBroadcast(price);
                     if (SettingManager.soldMessageEnabled) {
                         if (SettingManager.autoCollect) {
-                            // Tell the seller across the cluster that their
-                            // auction sold (and the money was auto-collected).
                             CrossServerMessenger.sendToPlayer(sellerUuid,
                                     "chat.sold-message.auto-collect",
                                     "%buyer%", buyer,
@@ -144,40 +138,34 @@ public class ConfirmBuyGUI extends InventoryGUI{
                                     "%amount%", amount,
                                     "%price%", priceStr);
                         } else {
-                            // For the click-to-collect variant we can only
-                            // deliver locally because clicking is a Bukkit-side
-                            // action that no other server can execute. Players
-                            // who happen to be on the same node still get the
-                            // component; other servers see a plain equivalent.
                             Player seller = Bukkit.getPlayer(sellerUuid);
+                            String viewCommand = "/ah view " + note.getNoteID();
                             if (seller != null && seller.isOnline()) {
-                                String prefix = M.getFormatted("chat.sold-message.prefix",
+                                M.sendClickable(seller,
+                                        "chat.sold-message.prefix",
+                                        "chat.sold-message.interaction",
+                                        viewCommand,
                                         "%buyer%", buyer,
                                         "%item%", itemName,
                                         "%amount%", amount,
                                         "%price%", priceStr);
-                                TextComponent component = new TextComponent(prefix);
-                                TextComponent click = new TextComponent(M.getFormatted("chat.sold-message.interaction"));
-                                click.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/ah view " + note.getNoteID().toString()));
-                                seller.spigot().sendMessage(component, click);
+                                CrossServerMessenger.sendToPlayerRemoteOnly(sellerUuid,
+                                        "chat.sold-message.prefix",
+                                        "%buyer%", buyer,
+                                        "%item%", itemName,
+                                        "%amount%", amount,
+                                        "%price%", priceStr);
+                            } else {
+                                CrossServerMessenger.sendToPlayer(sellerUuid,
+                                        "chat.sold-message.prefix",
+                                        "%buyer%", buyer,
+                                        "%item%", itemName,
+                                        "%amount%", amount,
+                                        "%price%", priceStr);
                             }
-                            CrossServerMessenger.sendToPlayer(sellerUuid,
-                                    "chat.sold-message.prefix",
-                                    "%buyer%", buyer,
-                                    "%item%", itemName,
-                                    "%amount%", amount,
-                                    "%price%", priceStr);
                         }
                     }
                     if (SettingManager.autoCollect) {
-                        // Only the local server has Bukkit.getOfflinePlayer;
-                        // auto-collect relies on running on the same node as
-                        // the GUI, but the seller may also have a /ah view
-                        // pending item on another server. We trigger the local
-                        // collect if the seller happens to be here; other
-                        // nodes pick the item up on PlayerJoin (the existing
-                        // PlayerJoinCollectListener already handles the
-                        // cross-server flow via the MySQL+Redis state).
                         Player localSeller = Bukkit.getPlayer(sellerUuid);
                         if (localSeller != null && localSeller.isOnline()) {
                             final Player sellerRef = localSeller;
@@ -198,12 +186,6 @@ public class ConfirmBuyGUI extends InventoryGUI{
                 });
     }
 
-    /**
-     * Pre-resolve the {@code %price%} placeholder against the server's
-     * formatted-price template so the value can be transported through Redis
-     * as a plain String and dropped into a {@code String...} placeholder list
-     * on the receiving server.
-     */
     private static String formatPriceForBroadcast(double price) {
         try {
             return StringUtils.formatPrice(price, false);

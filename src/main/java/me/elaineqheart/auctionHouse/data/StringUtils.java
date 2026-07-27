@@ -2,15 +2,12 @@ package me.elaineqheart.auctionHouse.data;
 
 import me.elaineqheart.auctionHouse.data.persistentStorage.local.SettingManager;
 import me.elaineqheart.auctionHouse.data.persistentStorage.local.configs.M;
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.bukkit.Location;
-import org.bukkit.World;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.Item;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 
 import java.text.DecimalFormat;
+import java.util.Locale;
 import java.util.Objects;
 
 public class StringUtils {
@@ -72,37 +69,27 @@ public class StringUtils {
     }
 
     public static String getItemName(ItemStack item) {
-        if (item == null) {
-            return "Unknown";
-        }
-        String name = null;
-        try {
-            World world = Bukkit.getWorlds().getFirst();
-            if (world != null) {
-                Item itemEntity = (Item) world.spawnEntity(new Location(world, 0, 0, 0), EntityType.ITEM);
-                itemEntity.setItemStack(item);
-                name = itemEntity.getName();
-                itemEntity.remove();
-            }
-        } catch (Throwable t) {
-            // Some servers (or odd lifecycles) throw when we try to spawn an
-            // entity — fall back to material name.
-        }
-        if (name == null || name.isEmpty()) {
-            try {
-                String mat = item.getType() == null ? "Unknown" : item.getType().name();
-                name = mat.toLowerCase().replace('_', ' ');
-            } catch (Throwable t) {
-                name = "Unknown";
-            }
-        }
-        if (item.getItemMeta() != null && item.getItemMeta().hasDisplayName()) {
-            net.kyori.adventure.text.Component displayName = item.getItemMeta().displayName();
+        if (item == null) return "Unknown";
+
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null && meta.hasDisplayName()) {
+            net.kyori.adventure.text.Component displayName = meta.displayName();
             if (displayName != null) {
-                name = PLAIN.serialize(displayName);
+                String plainName = PLAIN.serialize(displayName);
+                if (!plainName.isBlank()) return plainName;
             }
         }
-        return name;
+
+        try {
+            if (meta != null && meta.hasItemName()) {
+                String itemName = meta.getItemName();
+                if (!itemName.isBlank()) return itemName;
+            }
+        } catch (NoSuchMethodError ignored) {
+            // Compatibility with server implementations predating custom item names.
+        }
+        String materialName = item.getType().name().toLowerCase(Locale.ROOT).replace('_', ' ');
+        return materialName.isBlank() ? "Unknown" : materialName;
     }
 
     /**

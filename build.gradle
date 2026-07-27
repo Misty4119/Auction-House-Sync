@@ -1,11 +1,11 @@
 plugins {
     id 'java'
-    id 'com.github.johnrengelman.shadow' version '8.1.1'
-    id("xyz.jpenilla.run-paper") version "2.3.1"
+    id("com.gradleup.shadow") version "9.5.1"
+    id("xyz.jpenilla.run-paper") version "3.0.2"
 }
 
 group = 'me.elaineqheart'
-version = '2.0.0'
+version = '2.0.1'
 
 repositories {
     mavenCentral()
@@ -46,6 +46,14 @@ dependencies {
     implementation("redis.clients:jedis:6.1.0")
     implementation("org.slf4j:slf4j-api:2.0.13")
     implementation("org.slf4j:slf4j-simple:2.0.13")
+
+    testImplementation(platform("org.junit:junit-bom:5.11.4"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
 }
 
 tasks.named('jar') {
@@ -53,9 +61,11 @@ tasks.named('jar') {
 }
 
 tasks.named('shadowJar') {
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
     archiveBaseName.set(rootProject.name ?: 'AuctionHouse')
     archiveClassifier.set('')
     archiveVersion.set(version)
+    relocate("space.arim.morepaperlib", "me.elaineqheart.auctionHouse.libs.morepaperlib")
     destinationDirectory.set(file("${rootDir}"))
     mergeServiceFiles()
 }

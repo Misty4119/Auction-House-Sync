@@ -3,6 +3,7 @@ package me.elaineqheart.auctionHouse.GUI.impl;
 import me.elaineqheart.auctionHouse.AuctionHouse;
 import me.elaineqheart.auctionHouse.GUI.InventoryButton;
 import me.elaineqheart.auctionHouse.GUI.InventoryGUI;
+import me.elaineqheart.auctionHouse.GUI.Pagination;
 import me.elaineqheart.auctionHouse.GUI.other.Sounds;
 import me.elaineqheart.auctionHouse.TaskManager;
 import me.elaineqheart.auctionHouse.data.persistentStorage.local.configs.M;
@@ -67,6 +68,7 @@ public class MyBidsGUI extends InventoryGUI implements Runnable {
     private void createButtonsForAuctionItems(List<ItemNote> myAuctions, List<Integer> itemSlots) {
         noteSize = myAuctions.size();
         screenSize = itemSlots.size();
+        page = Pagination.clampPage(page, noteSize, screenSize);
         int start = page * screenSize;
         int stop = start + screenSize;
         int end = Math.min(noteSize, stop);

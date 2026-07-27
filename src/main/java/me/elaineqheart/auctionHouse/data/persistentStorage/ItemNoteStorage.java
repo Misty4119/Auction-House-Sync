@@ -56,7 +56,7 @@ public class ItemNoteStorage {
     // Lifecycle
     // ------------------------------------------------------------
 
-    public static void createNote(Player p, ItemStack item, double price, boolean isBIDAuction) {
+    public static ItemNote createNote(Player p, ItemStack item, double price, boolean isBIDAuction) {
         ItemNote itemNote = new ItemNote(p, item, price, isBIDAuction);
         ConfigManager.transactionLogger.logSetUpAuction(
                 p.getDisplayName(),
@@ -66,6 +66,7 @@ public class ItemNoteStorage {
                 isBIDAuction);
 
         persistUpsert(itemNote);
+        return itemNote;
     }
 
     public static void saveNotes() throws IOException {

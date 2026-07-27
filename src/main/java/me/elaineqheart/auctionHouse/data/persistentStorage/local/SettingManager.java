@@ -117,6 +117,10 @@ public class SettingManager {
             backwardsCompatibility();
 
         taxRate = c.getDouble("tax", 0.01);
+        if (taxRate < 0 || taxRate > 1) {
+            AuctionHouse.getInstance().getLogger().warning(
+                    "Auction House tax is outside the expected 0-100% range: " + taxRate * 100 + "%");
+        }
         auctionSetupTime = c.getLong("auction-setup-time", 30);
         defaultMaxAuctions = c.getInt("default-max-auctions", 10);
         soldMessageEnabled = c.getBoolean("sold-message", true);

@@ -159,7 +159,8 @@ public class AuctionHouseCommand implements CommandExecutor, TabCompleter {
                 ItemStack inputItem = item.clone();
                 inputItem.setAmount(amount);
                 item.setAmount(item.getAmount() - amount);
-                ItemNoteStorage.createNote(p, inputItem, price, strings[0].equals(M.getFormatted("commands.bid")));
+                ItemNote createdNote = ItemNoteStorage.createNote(
+                        p, inputItem, price, strings[0].equals(M.getFormatted("commands.bid")));
                 M.send(p, "command-feedback.auction", price);
 
                 // Announce the new auction across the cluster. The local
@@ -169,7 +170,7 @@ public class AuctionHouseCommand implements CommandExecutor, TabCompleter {
                 // guarantee anyway, since a player there never opened the
                 // "/ah sell" GUI on this node).
                 if(SettingManager.auctionAnnouncementsEnabled) {
-                    String itemName = StringUtils.getItemName(inputItem);
+                    String itemName = createdNote.getItemName();
                     String messageKey = strings[0].equals(M.getFormatted("commands.sell"))
                             ? "chat.auction-announcement" : "chat.bid-announcement";
                     UUID sellerUuid = p.getUniqueId();
@@ -503,6 +504,7 @@ public class AuctionHouseCommand implements CommandExecutor, TabCompleter {
 
 
     private static void reload() {
+        SettingManager.loadData();
         ConfigManager.reloadConfigs();
         try {
             ItemNoteStorage.loadNotes();
@@ -510,7 +512,6 @@ public class AuctionHouseCommand implements CommandExecutor, TabCompleter {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        SettingManager.loadData();
         UpdateDisplay.reload(false);
     }
 

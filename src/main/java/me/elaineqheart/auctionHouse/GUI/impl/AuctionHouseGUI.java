@@ -3,6 +3,7 @@ package me.elaineqheart.auctionHouse.GUI.impl;
 import me.elaineqheart.auctionHouse.AuctionHouse;
 import me.elaineqheart.auctionHouse.GUI.InventoryButton;
 import me.elaineqheart.auctionHouse.GUI.InventoryGUI;
+import me.elaineqheart.auctionHouse.GUI.Pagination;
 import me.elaineqheart.auctionHouse.GUI.other.AnvilHandler;
 import me.elaineqheart.auctionHouse.GUI.other.Sounds;
 import me.elaineqheart.auctionHouse.TaskManager;
@@ -99,6 +100,7 @@ public class AuctionHouseGUI extends InventoryGUI implements Runnable {
         if(c.getWhitelist() != null) AuctionHouseStorage.applyWhitelist(auctions, c.getWhitelist());
         noteSize = auctions.size();
         screenSize = itemSlots.size();
+        c.setCurrentPage(Pagination.clampPage(c.getCurrentPage(), noteSize, screenSize));
         int start = c.getCurrentPage() * screenSize;
         int stop = start + screenSize;
         int end = Math.min(noteSize, stop);
@@ -219,7 +221,7 @@ public class AuctionHouseGUI extends InventoryGUI implements Runnable {
 //    }
 
     private InventoryButton nextPage(){
-        int pages = (noteSize-1)/screenSize;
+        int pages = Pagination.lastPage(noteSize, screenSize);
         ItemStack item = ConfigManager.layout.getItem("n");
         ItemMeta meta = item.getItemMeta();
         assert meta != null;
@@ -239,13 +241,14 @@ public class AuctionHouseGUI extends InventoryGUI implements Runnable {
                 });
     }
     private InventoryButton previousPage(){
+        int pages = Pagination.lastPage(noteSize, screenSize);
         ItemStack item = ConfigManager.layout.getItem("p");
         ItemMeta meta = item.getItemMeta();
         assert meta != null;
         meta.displayName(M.getFormattedComponent("items.previous-page.name"));
         meta.lore(M.getLoreComponents("items.previous-page.lore",
                 "%page%", String.valueOf(c.getCurrentPage()+1),
-                "%pages%", String.valueOf((noteSize-1)/screenSize+1)));
+                "%pages%", String.valueOf(pages+1)));
         item.setItemMeta(meta);
         return new InventoryButton()
                 .creator(player -> item)

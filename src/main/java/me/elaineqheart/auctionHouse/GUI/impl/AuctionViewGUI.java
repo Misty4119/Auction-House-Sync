@@ -21,8 +21,8 @@ import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.Objects;
 
 public class AuctionViewGUI extends InventoryGUI implements Runnable{
@@ -35,13 +35,13 @@ public class AuctionViewGUI extends InventoryGUI implements Runnable{
     private boolean topBid;
     private final AhConfiguration.View goBackTo;
 
-    public static Map<Player, AuctionViewGUI> currentGUIs = new HashMap<>();
+    public static Map<Player, AuctionViewGUI> currentGUIs = new ConcurrentHashMap<>();
 
     @Override
     public void run() {
         if (this.getInventory().getViewers().isEmpty()) return;
         decorate(c.getPlayer());
-        instance.getScheduler().globalRegionalScheduler().runDelayed(this, TaskManager.GUIUpdateTick);
+        AuctionHouse.getGuiManager().runForPlayerDelayed(c.getPlayer(), this, TaskManager.GUIUpdateTick);
     }
 
     public void update() {
@@ -57,7 +57,7 @@ public class AuctionViewGUI extends InventoryGUI implements Runnable{
         this.bid = bid;
         if(this.bid == 0) this.bid = note.hasBidHistory() ? Bid.nextMinBid(note.getPrice()) : note.getPrice();
         currentGUIs.put(c.getPlayer(), this);
-        instance.getScheduler().globalRegionalScheduler().runDelayed(this, TaskManager.GUIUpdateTick);
+        AuctionHouse.getGuiManager().runForPlayerDelayed(c.getPlayer(), this, TaskManager.GUIUpdateTick);
     }
 
     @Override
@@ -212,8 +212,8 @@ public class AuctionViewGUI extends InventoryGUI implements Runnable{
                             }
                         }
                         public void onClose(Player p) {
-                            instance.getScheduler().globalRegionalScheduler().runDelayed(() ->
-                                    AuctionHouse.getGuiManager().openGUI(new AuctionViewGUI(note, c, 0, goBackTo), c.getPlayer()),1);
+                            AuctionHouse.getGuiManager().runForPlayerDelayed(c.getPlayer(), () ->
+                                    AuctionHouse.getGuiManager().openGUI(new AuctionViewGUI(note, c, 0, goBackTo), c.getPlayer()), 1);
                         }
                     };
                     AuctionHouse.getAnvilManager().open(p, "inventory-titles.anvil-set-amount", handler);
@@ -249,8 +249,8 @@ public class AuctionViewGUI extends InventoryGUI implements Runnable{
                             }
                         }
                         public void onClose(Player p) {
-                            instance.getScheduler().globalRegionalScheduler().runDelayed(() ->
-                                    AuctionHouse.getGuiManager().openGUI(new AuctionViewGUI(note, c, bid, goBackTo), c.getPlayer()),1);
+                            AuctionHouse.getGuiManager().runForPlayerDelayed(c.getPlayer(), () ->
+                                    AuctionHouse.getGuiManager().openGUI(new AuctionViewGUI(note, c, bid, goBackTo), c.getPlayer()), 1);
                         }
                     };
                     AuctionHouse.getAnvilManager().open(c.getPlayer(), "inventory-titles.anvil-set-bid", handler);

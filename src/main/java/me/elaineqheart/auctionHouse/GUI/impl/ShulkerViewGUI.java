@@ -29,10 +29,10 @@ public class ShulkerViewGUI extends InventoryGUI {
     @Override
     public void onClose(InventoryCloseEvent event) {
         Player p = (Player) event.getPlayer();
-        instance.getScheduler().globalRegionalScheduler().runDelayed(() -> {
+        AuctionHouse.getGuiManager().runForPlayerDelayed(p, () -> {
             Sounds.closeShulker(event);
             openSwitch(c, note, p, goBackTo);
-        },0);
+        }, 1);
     }
 
     public static void openSwitch(AhConfiguration c, ItemNote note, Player p, AhConfiguration.View goBackTo) {

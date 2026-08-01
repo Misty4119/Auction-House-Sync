@@ -45,8 +45,8 @@ public final class MySQLManager {
             MySQLMetaStore.ensureSchema();
 
             AuctionHouse.getInstance().getLogger().info(
-                    "[AuctionHouse] MySQL pool initialised at " +
-                            cfg.getJdbcUrl().replaceFirst(":[^:@/?]+@", ":***@")
+                    "[AuctionHouse] MySQL pool initialised for "
+                            + SettingManager.mysqlHost + ":" + SettingManager.mysqlPort
             );
         } catch (Throwable t) {
             // Make sure we don't half-leave a pool around that callers would
@@ -129,9 +129,9 @@ public final class MySQLManager {
         String params = SettingManager.mysqlExtraParams;
         sb.append('?');
         sb.append(params == null || params.isBlank() ? "useSSL=false" : params);
-        if (SettingManager.mysqlUseSsl) {
-            sb.append("&useSSL=true&requireSSL=true");
-        }
+        sb.append(SettingManager.mysqlUseSsl
+                ? "&sslMode=VERIFY_IDENTITY"
+                : "&sslMode=DISABLED");
         return sb.toString();
     }
 

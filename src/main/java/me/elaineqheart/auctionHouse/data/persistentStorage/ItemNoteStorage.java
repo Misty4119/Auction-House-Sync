@@ -342,16 +342,34 @@ public class ItemNoteStorage {
     // High-level mutations called by the GUIs
     // ------------------------------------------------------------
 
-    public static boolean setSoldIfOnAuction(ItemNote note, Player p, int amount, double price) {
-        setSold(note, true);
-        setBuyerName(note, p.getDisplayName(), p.getUniqueId());
+    public static synchronized boolean setSoldIfOnAuction(ItemNote note, Player p, int amount, double price) {
+        if (note == null || p == null || amount <= 0 || !Double.isFinite(price) || price <= 0) return false;
+        if (SettingManager.isMysqlPersistence()) {
+            return MySQLNoteStorage.withNoteLock(note.getNoteID(), () ->
+                    MySQLNoteStorage.stateMatches(note) && setSoldIfOnAuctionLocked(note, p, amount, price));
+        }
+        return setSoldIfOnAuctionLocked(note, p, amount, price);
+    }
+
+    private static boolean setSoldIfOnAuctionLocked(ItemNote note, Player p, int amount, double price) {
+        ItemNote live = AuctionHouseStorage.getNote(note.getNoteID());
+        if (live != note || !live.isTheoreticallyOnAuction() || live.isExpired()
+                || live.isBIDAuction() || live.getCurrentAmount() < amount) return false;
+        double expected = live.getPrice() / live.getItem().getAmount() * amount;
+        if (Math.abs(expected - price) > 0.000001D) return false;
+        // Publish one complete sale snapshot.  Sending isSold=true before the
+        // buyer and partial-sale fields lets another server observe an
+        // impossible intermediate state and reject stateMatches().
+        note.setSold(true);
+        note.setBuyerName(p.getDisplayName(), p.getUniqueId());
         if (price != note.getPrice()) {
             if (note.getPartiallySoldAmountLeft() == 0) {
-                setPartiallySoldAmountLeft(note, note.getItem().getAmount() - amount);
+                note.setPartiallySoldAmountLeft(note.getItem().getAmount() - amount);
             } else {
-                setPartiallySoldAmountLeft(note, note.getPartiallySoldAmountLeft() - amount);
+                note.setPartiallySoldAmountLeft(note.getPartiallySoldAmountLeft() - amount);
             }
         }
+        commit(note);
         saveNotesWithoutCheck();
         ConfigManager.transactionLogger.logTransaction(
                 p.getDisplayName(), note.getPlayerName(), note.getItemName(),
@@ -375,8 +393,18 @@ public class ItemNoteStorage {
         return true;
     }
 
-    public static boolean collectSoldAuctionItem(ItemNote note, int itemAmount, double price) {
-        if (note == null) return false;
+    public static synchronized boolean collectSoldAuctionItem(ItemNote note, int itemAmount, double price) {
+        if (note == null || itemAmount <= 0 || !Double.isFinite(price) || price < 0) return false;
+        if (SettingManager.isMysqlPersistence()) {
+            return MySQLNoteStorage.withNoteLock(note.getNoteID(), () ->
+                    MySQLNoteStorage.stateMatches(note) && collectSoldAuctionItemLocked(note, itemAmount, price));
+        }
+        return collectSoldAuctionItemLocked(note, itemAmount, price);
+    }
+
+    private static boolean collectSoldAuctionItemLocked(ItemNote note, int itemAmount, double price) {
+        if (AuctionHouseStorage.getNote(note.getNoteID()) != note) return false;
+        if (Math.abs(note.getSoldPrice() - price) > 0.000001D) return false;
         if (note.isBIDAuction() && note.isSold()) return false;
         if (note.getPartiallySoldAmountLeft() != 0) {
             setPrice(note, note.getPrice() - price);
@@ -399,7 +427,20 @@ public class ItemNoteStorage {
         return true;
     }
 
-    public static boolean addBidIfOnAuction(ItemNote note, Player p, double price) {
+    public static synchronized boolean addBidIfOnAuction(ItemNote note, Player p, double price) {
+        if (note == null || p == null || !Double.isFinite(price) || price <= 0) return false;
+        if (SettingManager.isMysqlPersistence()) {
+            return MySQLNoteStorage.withNoteLock(note.getNoteID(), () ->
+                    MySQLNoteStorage.stateMatches(note) && addBidIfOnAuctionLocked(note, p, price));
+        }
+        return addBidIfOnAuctionLocked(note, p, price);
+    }
+
+    private static boolean addBidIfOnAuctionLocked(ItemNote note, Player p, double price) {
+        ItemNote live = AuctionHouseStorage.getNote(note.getNoteID());
+        if (live != note || !live.isBIDAuction() || !live.isTheoreticallyOnAuction() || live.isExpired()) return false;
+        double minimum = live.hasBidHistory() ? Bid.nextMinBid(live.getPrice()) : live.getPrice();
+        if (price < minimum) return false;
         addBid(note, p, price);
         saveNotesWithoutCheck();
         return true;

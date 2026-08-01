@@ -6,14 +6,14 @@ import me.elaineqheart.auctionHouse.data.persistentStorage.local.data.ConfigMana
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class AhConfiguration {
 
-    private static final HashMap<Player, AhConfiguration> currentConfigurations = new HashMap<>();
+    private static final Map<Player, AhConfiguration> currentConfigurations = new ConcurrentHashMap<>();
 
     private int currentPage;
     private AuctionHouseGUI.Sort currentSort;

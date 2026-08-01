@@ -104,20 +104,30 @@ public class ConfirmBuyGUI extends InventoryGUI{
                         return;
                     }
                     Economy eco = VaultHook.getEconomy();
-                    instance.getScheduler().globalRegionalScheduler().run(() -> AuctionHouse.getGuiManager().openGUI(new AuctionHouseGUI(c), p));
+                    AuctionHouse.getGuiManager().openGUI(new AuctionHouseGUI(c), p);
                     if (eco.getBalance(p) < price) {
+                        M.send(p, "chat.not-enough-money");
+                        Sounds.villagerDeny(event);
+                        return;
+                    }
+                    var withdrawal = eco.withdrawPlayer(p, price);
+                    if (!withdrawal.transactionSuccess()) {
                         M.send(p, "chat.not-enough-money");
                         Sounds.villagerDeny(event);
                         return;
                     }
                     boolean claimed = ItemNoteStorage.setSoldIfOnAuction(note, p, item.getAmount(), price);
                     if (!claimed) {
+                        var refund = eco.depositPlayer(p, price);
+                        if (!refund.transactionSuccess()) {
+                            instance.getLogger().severe("Failed to refund conflicted auction purchase for player "
+                                    + p.getUniqueId() + ", note " + note.getNoteID());
+                        }
                         M.send(p, "chat.already-sold");
                         Sounds.villagerDeny(event);
                         return;
                     }
 
-                    eco.withdrawPlayer(p, price);
                     Sounds.experience(event);
                     p.getInventory().addItem(item);
 
@@ -169,7 +179,7 @@ public class ConfirmBuyGUI extends InventoryGUI{
                         Player localSeller = Bukkit.getPlayer(sellerUuid);
                         if (localSeller != null && localSeller.isOnline()) {
                             final Player sellerRef = localSeller;
-                            instance.getScheduler().globalRegionalScheduler().run(() ->
+                            AuctionHouse.getGuiManager().runForPlayer(sellerRef, () ->
                                     CollectSoldItemGUI.collect(sellerRef, note.getNoteID(),
                                             item.getAmount(), note.getSoldPrice()));
                         }

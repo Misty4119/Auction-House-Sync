@@ -1,5 +1,6 @@
 package me.elaineqheart.auctionHouse.GUI;
 
+import me.elaineqheart.auctionHouse.AuctionHouse;
 import me.elaineqheart.auctionHouse.GUI.impl.AuctionHouseGUI;
 import me.elaineqheart.auctionHouse.GUI.impl.MyAuctionsGUI;
 import me.elaineqheart.auctionHouse.GUI.impl.MyBidsGUI;
@@ -11,8 +12,8 @@ import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.inventory.Inventory;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 //https://www.spigotmc.org/threads/a-modern-approach-to-inventory-guis.594005/
 
@@ -21,11 +22,40 @@ import java.util.Map;
 
 public class GUIManager {
 
-    private final Map<Inventory, InventoryHandler> activeInventories = new HashMap<>();
+    private final Map<Inventory, InventoryHandler> activeInventories = new ConcurrentHashMap<>();
 
     public void openGUI(InventoryGUI gui, Player player) {
-        this.registerHandledInventory(gui.getInventory(), gui);
-        player.openInventory(gui.getInventory());
+        if (gui == null || player == null || !player.isOnline()) return;
+        runForPlayer(player, () -> {
+            if (!player.isOnline()) return;
+            this.registerHandledInventory(gui.getInventory(), gui);
+            try {
+                player.openInventory(gui.getInventory());
+            } catch (RuntimeException ex) {
+                this.unregisterInventory(gui.getInventory());
+                throw ex;
+            }
+        });
+    }
+
+    public void closeGUI(Player player) {
+        if (player == null) return;
+        runForPlayer(player, player::closeInventory);
+    }
+
+    public void runForPlayer(Player player, Runnable task) {
+        if (player == null || task == null) return;
+        AuctionHouse plugin = AuctionHouse.getInstance();
+        if (plugin == null) return;
+        plugin.getScheduler().entitySpecificScheduler(player).run(task, () -> {});
+    }
+
+    public void runForPlayerDelayed(Player player, Runnable task, long delayTicks) {
+        if (player == null || task == null) return;
+        AuctionHouse plugin = AuctionHouse.getInstance();
+        if (plugin == null) return;
+        plugin.getScheduler().entitySpecificScheduler(player)
+                .runDelayed(task, () -> {}, Math.max(1L, delayTicks));
     }
     public void openGUI(Player p, AhConfiguration c, AhConfiguration.View goBackTo) {
         if (goBackTo == AhConfiguration.View.AUCTION_HOUSE) openGUI(new AuctionHouseGUI(c), p);
@@ -66,7 +96,9 @@ public class GUIManager {
 
     public void forceCloseAll() {
         for (Player player : Bukkit.getOnlinePlayers()) {
-            if(this.activeInventories.containsKey(player.getOpenInventory().getTopInventory())) player.closeInventory();
+            runForPlayer(player, () -> {
+                if(this.activeInventories.containsKey(player.getOpenInventory().getTopInventory())) player.closeInventory();
+            });
         }
     }
 

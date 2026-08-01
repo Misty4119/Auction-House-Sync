@@ -16,14 +16,14 @@ import org.bukkit.inventory.MenuType;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.view.AnvilView;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class AnvilGUIManager implements Listener {
 
     private static final AuctionHouse instance = AuctionHouse.getInstance();
 
-    private static final Map<Inventory, AnvilHandler> activeInventories = new HashMap<>();
+    private static final Map<Inventory, AnvilHandler> activeInventories = new ConcurrentHashMap<>();
 
     public enum SearchType {
         AH,
@@ -35,11 +35,13 @@ public class AnvilGUIManager implements Listener {
     }
 
     public void open(Player player, String inventoryTitleKey, AnvilHandler handler) {
-        AnvilView view = MenuType.ANVIL.create(player, M.getFormattedComponent(inventoryTitleKey));
-        view.setMaximumRepairCost(0);
-        view.setItem(0, ItemManager.emptyPaper);
-        registerHandledInventory(view.getTopInventory(), handler);
-        player.openInventory(view);
+        AuctionHouse.getGuiManager().runForPlayer(player, () -> {
+            AnvilView view = MenuType.ANVIL.create(player, M.getFormattedComponent(inventoryTitleKey));
+            view.setMaximumRepairCost(0);
+            view.setItem(0, ItemManager.emptyPaper);
+            registerHandledInventory(view.getTopInventory(), handler);
+            player.openInventory(view);
+        });
     }
 
     public void registerHandledInventory(Inventory inventory, AnvilHandler handler) {
@@ -90,7 +92,8 @@ public class AnvilGUIManager implements Listener {
         ItemStack result = event.getInventory().getItem(2);
         if (result == null) return;
 
-        instance.getScheduler().globalRegionalScheduler().runDelayed(() -> event.getView().setRepairCost(0),1);
+        Player player = (Player) event.getView().getPlayer();
+        AuctionHouse.getGuiManager().runForPlayerDelayed(player, () -> event.getView().setRepairCost(0), 1);
     }
 
     @EventHandler
@@ -114,7 +117,7 @@ public class AnvilGUIManager implements Listener {
                 assert paperItem != null;
                 player.getOpenInventory().getTopInventory().remove(paperItem);
                 player.getOpenInventory().getBottomInventory().remove(paperItem);
-                player.closeInventory();
+                AuctionHouse.getGuiManager().closeGUI(player);
             }
         }
     }

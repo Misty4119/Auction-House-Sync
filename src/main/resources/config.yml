@@ -54,15 +54,15 @@ database:
     database: "auction_house"
     username: "root"
     password: ""
+    # Transport settings belong to mysql, not mysql.pool.
+    use-ssl: true
+    parameters: "serverTimezone=UTC&useUnicode=true&characterEncoding=UTF-8"
     # HikariCP pool tuning
     pool:
       maximum-pool-size: 16
       minimum-idle: 4
       max-lifetime: 1800000     # 30 min (ms)
       connection-timeout: 5000  # ms
-      # Optional JDBC params appended to the JDBC URL or as data-source properties.
-      use-ssl: false
-      parameters: "useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=UTF-8"
 
   redis:
     # Host of any Redis 8.0 server (cluster, sentinel or single-node is fine).
@@ -71,6 +71,7 @@ database:
     port: 6379
     username: "default"
     password: ""
+    use-ssl: true
     database: 0
     connection-timeout: 3000   # ms
     so-timeout: 3000           # ms
@@ -84,6 +85,9 @@ database:
     # Prefix for all keys + channels created by this plugin (keep unique per app).
     key-prefix: "auction:"
     channel: "auction:events"
+    # Required for pub/sub. Use the same random secret (32+ characters) on
+    # every AuctionHouse node; unsigned or replayed events are rejected.
+    sync-secret: "CHANGE-ME-TO-A-LONG-RANDOM-SECRET"
 
 # Identifier of this individual server; used to ignore our own pub/sub echoes.
 # IMPORTANT: every node in the cluster MUST have a unique server-id. If two

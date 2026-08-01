@@ -10,6 +10,13 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class StringUtilsSafetyTest {
 
+    @org.junit.jupiter.api.Test
+    void rejectsNonFinitePrices() {
+        org.junit.jupiter.api.Assertions.assertEquals(-1, StringUtils.parsePositiveNumber("NaN"));
+        org.junit.jupiter.api.Assertions.assertEquals(-1, StringUtils.parsePositiveNumber("Infinity"));
+        org.junit.jupiter.api.Assertions.assertEquals(-1, StringUtils.parsePositiveNumber("1e309"));
+    }
+
     @Test
     void itemNameResolutionDoesNotMutateAWorld() throws IOException {
         String source = Files.readString(Path.of(

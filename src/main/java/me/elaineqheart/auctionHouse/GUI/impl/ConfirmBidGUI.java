@@ -107,18 +107,28 @@ public class ConfirmBidGUI extends InventoryGUI {
                         return;
                     }
 
+                    var withdrawal = eco.withdrawPlayer(p, increase);
+                    if (!withdrawal.transactionSuccess()) {
+                        M.send(p, "chat.not-enough-money");
+                        Sounds.villagerDeny(event);
+                        return;
+                    }
                     boolean success = ItemNoteStorage.addBidIfOnAuction(note, p, price);
                     if (!success) {
+                        var refund = eco.depositPlayer(p, increase);
+                        if (!refund.transactionSuccess()) {
+                            instance.getLogger().severe("Failed to refund conflicted bid for player "
+                                    + p.getUniqueId() + ", note " + note.getNoteID());
+                        }
                         M.send(p, "chat.non-existent");
                         Sounds.villagerDeny(event);
                         return;
                     }
 
-                    eco.withdrawPlayer(p, increase);
                     Sounds.experience(event);
                     M.send(p, "chat.placed-bid", price, "%item%", note.getItemName());
                     if (c.shouldKeepOpen()) AuctionHouse.getGuiManager().openGUI(new AuctionViewGUI(note, c, 0, goBackToAuctionHouse ? AhConfiguration.View.AUCTION_HOUSE : AhConfiguration.View.MY_AUCTIONS), p);
-                    else instance.getScheduler().globalRegionalScheduler().run((Runnable) p::closeInventory);
+                    else AuctionHouse.getGuiManager().closeGUI(p);
 
                     Set<UUID> bidders = note.getBidders();
                     bidders.remove(p.getUniqueId());

@@ -16,8 +16,12 @@ import org.bukkit.inventory.ItemStack;
 import redis.clients.jedis.JedisPubSub;
 
 import java.lang.reflect.Type;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 
 /**
  * Multi-server real-time synchronisation layer.
@@ -52,6 +56,16 @@ public final class RedisSyncManager {
     private static final AtomicBoolean SUBSCRIBER_STARTED = new AtomicBoolean(false);
     private static SubscriberThread SUBSCRIBER;
     private static final Gson GSON = new Gson();
+    private static final int SCHEMA_VERSION = 1;
+    private static final int MAX_EVENT_CHARS = 1024 * 1024;
+    private static final long EVENT_WINDOW_MS = 120_000L;
+    private static final int MAX_REPLAY_IDS = 10_000;
+    private static final Map<String, Long> SEEN_EVENTS = Collections.synchronizedMap(
+            new LinkedHashMap<>(128, 0.75f, true) {
+                @Override protected boolean removeEldestEntry(Map.Entry<String, Long> eldest) {
+                    return size() > MAX_REPLAY_IDS;
+                }
+            });
 
     private RedisSyncManager() {}
 
@@ -95,6 +109,10 @@ public final class RedisSyncManager {
         /** Optional JSON-encoded payload for meta events. Always a String to
          *  stay compatible with the {@code <T> GSON.fromJson(String, Type)} API. */
         public String payload;
+        public int schemaVersion;
+        public String eventId;
+        public long issuedAt;
+        public String signature;
 
         public Event() {}
 
@@ -114,6 +132,11 @@ public final class RedisSyncManager {
         if (!SettingManager.useRedisCache()) return;
         if (!SettingManager.redisPubsubEnabled) return;
         if (!RedisManager.isAvailable()) return;
+        if (!hasSecureSyncSecret()) {
+            AuctionHouse.getInstance().getLogger().severe(
+                    "Redis pub/sub disabled: database.redis.sync-secret must be a non-placeholder secret of at least 32 characters.");
+            return;
+        }
         if (!SUBSCRIBER_STARTED.compareAndSet(false, true)) return;
 
         SUBSCRIBER = new SubscriberThread();
@@ -327,7 +350,12 @@ public final class RedisSyncManager {
 
     private static void publish(Event e) {
         if (!RedisManager.isAvailable()) return;
+        if (!hasSecureSyncSecret()) return;
         e.originServer = SettingManager.serverId;
+        e.schemaVersion = SCHEMA_VERSION;
+        e.eventId = UUID.randomUUID().toString();
+        e.issuedAt = System.currentTimeMillis();
+        e.signature = sign(e);
         String json = GSON.toJson(e);
         try (var jedis = RedisManager.getResource()) {
             jedis.publish(SettingManager.channel(), json);
@@ -338,13 +366,15 @@ public final class RedisSyncManager {
 
     /** Process an incoming event from another server on the Bukkit thread. */
     private static void handleEvent(String channel, String body) {
+        if (!Objects.equals(SettingManager.channel(), channel) || body == null
+                || body.isEmpty() || body.length() > MAX_EVENT_CHARS) return;
         Event e;
         try {
             e = GSON.fromJson(body, Event.class);
         } catch (Exception ex) {
             return;
         }
-        if (e == null || e.type == null) return;
+        if (e == null || e.type == null || !verify(e)) return;
         // Filter out echoes of our own writes.
         if (SettingManager.serverId.equals(e.originServer)) return;
 
@@ -393,6 +423,47 @@ public final class RedisSyncManager {
             case CHAT_BROADCAST     -> runOnServerThread(() -> applyRemoteChatBroadcast(e.payload));
             case CHAT_PRIVATE       -> runOnServerThread(() -> applyRemoteChatPrivate(e.payload));
         }
+    }
+
+    private static boolean hasSecureSyncSecret() {
+        String secret = SettingManager.redisSyncSecret;
+        return secret != null && secret.length() >= 32 && !secret.startsWith("CHANGE-ME");
+    }
+
+    private static boolean verify(Event e) {
+        if (!hasSecureSyncSecret() || e.schemaVersion != SCHEMA_VERSION
+                || e.eventId == null || e.originServer == null || e.signature == null
+                || e.eventId.length() > 64 || e.originServer.length() > 128) return false;
+        long now = System.currentTimeMillis();
+        if (Math.abs(now - e.issuedAt) > EVENT_WINDOW_MS) return false;
+        String expected = sign(e);
+        if (expected == null || !MessageDigest.isEqual(
+                expected.getBytes(StandardCharsets.US_ASCII),
+                e.signature.getBytes(StandardCharsets.US_ASCII))) return false;
+        synchronized (SEEN_EVENTS) {
+            SEEN_EVENTS.entrySet().removeIf(entry -> now - entry.getValue() > EVENT_WINDOW_MS);
+            if (SEEN_EVENTS.containsKey(e.eventId)) return false;
+            SEEN_EVENTS.put(e.eventId, now);
+        }
+        return true;
+    }
+
+    private static String sign(Event e) {
+        try {
+            String canonical = e.schemaVersion + "\n" + nullToEmpty(e.eventId) + "\n" + e.issuedAt
+                    + "\n" + nullToEmpty(e.originServer) + "\n" + nullToEmpty(e.type)
+                    + "\n" + nullToEmpty(e.noteId) + "\n" + GSON.toJson(e.hash)
+                    + "\n" + GSON.toJson(e.bids) + "\n" + nullToEmpty(e.payload);
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(SettingManager.redisSyncSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            return Base64.getEncoder().encodeToString(mac.doFinal(canonical.getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    private static String nullToEmpty(String value) {
+        return value == null ? "" : value;
     }
 
     /**
@@ -520,6 +591,19 @@ public final class RedisSyncManager {
 
     private static void applyHashToLocal(ItemNote note, Map<String, String> hash) {
         try {
+            // Buyer identity is part of MySQLNoteStorage.stateMatches().  It
+            // must therefore be refreshed together with the sold flag on an
+            // already-known note.  Omitting it leaves remote nodes with a
+            // stale null buyer after a sale and makes seller collection fail.
+            if (hash.containsKey("buyerName") || hash.containsKey("buyerUUID")) {
+                String buyerName = hash.containsKey("buyerName")
+                        ? emptyToNull(hash.get("buyerName"))
+                        : note.getBuyerName();
+                String buyerIdValue = hash.get("buyerUUID");
+                UUID buyerId = buyerIdValue == null || buyerIdValue.isBlank()
+                        ? null : UUID.fromString(buyerIdValue);
+                note.setBuyerName(buyerName, buyerId);
+            }
             if (hash.containsKey("price")) note.setPrice(Double.parseDouble(hash.get("price")));
             if (hash.containsKey("isSold")) note.setSold(Boolean.parseBoolean(hash.get("isSold")));
             if (hash.containsKey("partiallySoldAmountLeft"))

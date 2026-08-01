@@ -11,6 +11,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
+import java.util.function.BooleanSupplier;
 
 /**
  * MySQL persistence implementation. The note's full state is stored as a row in
@@ -25,6 +26,46 @@ import java.util.*;
 public final class MySQLNoteStorage {
 
     private MySQLNoteStorage() {}
+
+    /**
+     * Serialize a mutation for one auction across every server using the same
+     * MySQL instance. MySQL named locks are connection-scoped and are released
+     * automatically if a node crashes or loses its connection.
+     */
+    public static boolean withNoteLock(UUID noteId, BooleanSupplier mutation) {
+        if (noteId == null || mutation == null) return false;
+        String lockName = "auctionhouse:" + noteId;
+        try (Connection conn = MySQLManager.getConnection();
+             PreparedStatement acquire = conn.prepareStatement("SELECT GET_LOCK(?, 3)")) {
+            acquire.setString(1, lockName);
+            try (ResultSet rs = acquire.executeQuery()) {
+                if (!rs.next() || rs.getInt(1) != 1) return false;
+            }
+            try {
+                return mutation.getAsBoolean();
+            } finally {
+                try (PreparedStatement release = conn.prepareStatement("SELECT RELEASE_LOCK(?)")) {
+                    release.setString(1, lockName);
+                    release.executeQuery();
+                } catch (SQLException ignored) {}
+            }
+        } catch (SQLException ex) {
+            logError("withNoteLock", ex);
+            return false;
+        }
+    }
+
+    /** Compare the authoritative row with the RAM snapshot before mutating it. */
+    public static boolean stateMatches(ItemNote note) {
+        if (note == null) return false;
+        NoteRow row = loadNote(note.getNoteID());
+        if (row == null) return false;
+        return row.currentAmount == note.getItem().getAmount()
+                && row.isSold == note.isSold()
+                && row.partiallySoldLeft == note.getPartiallySoldAmountLeft()
+                && Double.compare(row.price, note.getPrice()) == 0
+                && Objects.equals(row.buyerId, note.getBuyerUUID());
+    }
 
     public static void upsertNote(ItemNote note) {
         if (note == null) return;

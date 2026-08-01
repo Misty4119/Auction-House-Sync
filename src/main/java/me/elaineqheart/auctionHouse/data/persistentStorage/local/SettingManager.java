@@ -53,8 +53,8 @@ public class SettingManager {
     public static int    mysqlMinIdle = 4;
     public static long   mysqlMaxLifetimeMs = 1_800_000L;
     public static long   mysqlConnectionTimeoutMs = 5_000L;
-    public static boolean mysqlUseSsl = false;
-    public static String mysqlExtraParams = "useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=UTF-8";
+    public static boolean mysqlUseSsl = true;
+    public static String mysqlExtraParams = "serverTimezone=UTC&useUnicode=true&characterEncoding=UTF-8";
 
     // Redis 8.0
     public static String  redisHost = "127.0.0.1";
@@ -70,6 +70,8 @@ public class SettingManager {
     public static boolean redisPubsubEnabled = true;
     public static String  redisKeyPrefix = "auction:";
     public static String  redisChannel = "auction:events";
+    public static String  redisSyncSecret = "";
+    public static boolean redisUseSsl = true;
 
     // ----------------------------------------------------
 
@@ -221,6 +223,8 @@ public class SettingManager {
             redisPubsubEnabled = redis.getBoolean("pubsub-enabled", redisPubsubEnabled);
             redisKeyPrefix = redis.getString("key-prefix", redisKeyPrefix);
             redisChannel = redis.getString("channel", redisChannel);
+            redisSyncSecret = redis.getString("sync-secret", redisSyncSecret);
+            redisUseSsl = redis.getBoolean("use-ssl", redisUseSsl);
         }
     }
 

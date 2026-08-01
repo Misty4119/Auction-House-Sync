@@ -28,7 +28,7 @@ public class CancelAuctionGUI extends InventoryGUI implements Runnable{
         if (this.getInventory().getViewers().isEmpty()) return;
         this.addButton(13, Item());
         super.decorate(c.getPlayer());
-        instance.getScheduler().globalRegionalScheduler().runDelayed(this, TaskManager.GUIUpdateTick);
+        AuctionHouse.getGuiManager().runForPlayerDelayed(c.getPlayer(), this, TaskManager.GUIUpdateTick);
     }
 
     public CancelAuctionGUI(ItemNote note, AhConfiguration configuration, AhConfiguration.View goBackTo) {
@@ -37,7 +37,7 @@ public class CancelAuctionGUI extends InventoryGUI implements Runnable{
         c = configuration;
         this.goBackTo = goBackTo;
         c.setView(AhConfiguration.View.CANCEL_AUCTION);
-        instance.getScheduler().globalRegionalScheduler().runDelayed(this, TaskManager.GUIUpdateTick);
+        AuctionHouse.getGuiManager().runForPlayerDelayed(c.getPlayer(), this, TaskManager.GUIUpdateTick);
     }
 
     @Override
@@ -126,5 +126,4 @@ public class CancelAuctionGUI extends InventoryGUI implements Runnable{
     }
 
 }
-
 

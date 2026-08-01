@@ -124,11 +124,33 @@ public class AuctionHouseStorage {
             checkRemove(noteID);
         }
     }
-    public static void checkRemove(UUID noteID) {
-        if(!notes.get(noteID).isBIDAuction()) return;
-        if(sortedPlayers.get(noteID).isEmpty() && notes.get(noteID).isSold()) {
+    public static synchronized void checkRemove(UUID noteID) {
+        if (noteID == null) return;
+        ItemNote note = notes.get(noteID);
+        if (note == null) {
             sortedPlayers.remove(noteID);
-            sortedBids.remove(notes.get(noteID).getPlayerUUID());
+            sortedBids.values().forEach(ids -> ids.remove(noteID));
+            return;
+        }
+        if (!note.isBIDAuction()) return;
+
+        List<UUID> remainingPlayers = sortedPlayers.get(noteID);
+        if (remainingPlayers == null) {
+            remainingPlayers = note.getBidders().stream()
+                    .filter(Objects::nonNull)
+                    .filter(player -> canCollectBid(note, player))
+                    .collect(Collectors.toCollection(ArrayList::new));
+            if (!remainingPlayers.isEmpty()) {
+                sortedPlayers.put(noteID, remainingPlayers);
+                for (UUID player : remainingPlayers) {
+                    List<UUID> bids = sortedBids.computeIfAbsent(player, ignored -> new ArrayList<>());
+                    if (!bids.contains(noteID)) bids.add(noteID);
+                }
+            }
+        }
+        if(remainingPlayers.isEmpty() && note.isSold()) {
+            sortedPlayers.remove(noteID);
+            sortedBids.values().forEach(ids -> ids.remove(noteID));
             removeFromLists(noteID);
         }
     }

@@ -2,7 +2,6 @@ package me.elaineqheart.auctionHouse.data;
 
 import me.elaineqheart.auctionHouse.data.persistentStorage.local.SettingManager;
 import me.elaineqheart.auctionHouse.data.persistentStorage.local.configs.M;
-import org.bukkit.ChatColor;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
@@ -18,7 +17,12 @@ public class StringUtils {
             net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText();
 
     /** Re-exported so other classes can build guaranteed-non-null names. */
-    public static final String RESET = ChatColor.RESET.toString();
+    public static final String RESET = "\u00a7r";
+
+    public static String escapeMiniMessage(String value) {
+        if (value == null) return "";
+        return net.kyori.adventure.text.minimessage.MiniMessage.miniMessage().escapeTags(value);
+    }
 
     public static String getTime(Long seconds, boolean convertDays) { //output example: 4h 23m 59s
         StringBuilder s = new StringBuilder();
@@ -123,12 +127,15 @@ public class StringUtils {
 
     public static double parsePositiveNumber(String input) {
         try{
-            double price = Math.max(Double.parseDouble(input), 0);
+            double parsed = Double.parseDouble(input);
+            if (!Double.isFinite(parsed)) return -1;
+            double price = Math.max(parsed, 0);
             if(price % 1 != 0) throw new RuntimeException();
             return price;
         } catch (Exception e) {
             try{
                 double price = Double.parseDouble(input.substring(0, input.length()-1));
+                if (!Double.isFinite(price)) return -1;
                 String suffix = input.substring(input.length()-1).toLowerCase();
                 switch (suffix) {
                     case "k":
@@ -140,7 +147,7 @@ public class StringUtils {
                     default:
                         return -1;
                 }
-                if(price % 1 != 0) throw new RuntimeException();
+                if (!Double.isFinite(price) || price % 1 != 0) throw new RuntimeException();
                 return Math.max(price, 0);
             } catch (Exception f) {
                 return -1;

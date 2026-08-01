@@ -20,7 +20,8 @@ public class PlayerJoinCollectListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerJoin(PlayerJoinEvent event) {
         if(!SettingManager.autoCollect) return;
-        instance.getScheduler().globalRegionalScheduler().runDelayed(() -> {
+        Player joined = event.getPlayer();
+        AuctionHouse.getGuiManager().runForPlayerDelayed(joined, () -> {
             Player p = event.getPlayer();
             if (p == null || !p.isOnline()) return;
             // Iterate the player's notes (stored in MySQL + mirrored in RAM);

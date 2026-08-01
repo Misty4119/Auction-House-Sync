@@ -50,6 +50,7 @@ public final class RedisManager {
                             ? null : SettingManager.redisPassword)
                     .database(SettingManager.redisDatabase)
                     .clientName("AuctionHouse:" + SettingManager.serverId)
+                    .ssl(SettingManager.redisUseSsl)
                     .build();
 
             HostAndPort hp = new HostAndPort(SettingManager.redisHost, SettingManager.redisPort);

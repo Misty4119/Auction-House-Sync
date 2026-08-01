@@ -59,7 +59,7 @@ public class TransactionLogger extends Config {
                               int amount, boolean isBID, UUID noteId) {
         String timeStamp = getTimeStamp();
         String entry = String.format("[%s] %s | Player: %s | Item: %s | Amount: %d | Price: %.2f | BID: %b",
-                timeStamp, kind, player, item, amount, price, isBID);
+                timeStamp, sanitize(kind), sanitize(player), sanitize(item), amount, price, isBID);
 
         // 1) Append to the local file (regardless of backend). Operators
         //    still expect a .log file under <datafolder>/logs/.
@@ -80,6 +80,17 @@ public class TransactionLogger extends Config {
                 RedisSyncManager.publishLogAppend(row);
             }
         }
+    }
+
+    static String sanitize(String value) {
+        if (value == null) return "";
+        StringBuilder safe = new StringBuilder(Math.min(value.length(), 256));
+        for (int i = 0; i < value.length() && safe.length() < 256; i++) {
+            char c = value.charAt(i);
+            if (c == '\r' || c == '\n' || Character.isISOControl(c)) safe.append(' ');
+            else safe.append(c);
+        }
+        return safe.toString();
     }
 
     private String getTimeStamp() {

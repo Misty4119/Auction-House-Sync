@@ -108,14 +108,25 @@ public class CollectSoldItemGUI extends InventoryGUI {
     }
 
     public static boolean collect(OfflinePlayer p, UUID noteID, int itemAmount, double price) {
+        if (p == null || noteID == null || itemAmount <= 0 || !Double.isFinite(price) || price < 0) return false;
         ItemNote note = AuctionHouseStorage.getNote(noteID);
+        if (note == null) return false;
+        if (!p.getUniqueId().equals(note.getPlayerUUID())) return false;
+        if (Math.abs(note.getSoldPrice() - price) > 0.000001D) return false;
+        Economy eco = VaultHook.getEconomy();
+        double profit = getProfit(price);
+        var deposit = eco.depositPlayer(p, profit);
+        if (!deposit.transactionSuccess()) return false;
         boolean success = ItemNoteStorage.collectSoldAuctionItem(note, itemAmount, price);
         if (!success) {
+            var rollback = eco.withdrawPlayer(p, profit);
+            if (!rollback.transactionSuccess()) {
+                AuctionHouse.getInstance().getLogger().severe(
+                        "Failed to roll back conflicted seller payment for note " + noteID);
+            }
             if (p instanceof Player onlinePlayer) M.send(onlinePlayer, "chat.non-existent");
             return false;
         }
-        Economy eco = VaultHook.getEconomy();
-        eco.depositPlayer(p, getProfit(price));
         return true;
     }
 

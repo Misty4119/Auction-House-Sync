@@ -192,7 +192,7 @@ public class ItemNote {
     public boolean isSold() {return isSold;}
     public boolean isTheoreticallyOnAuction() {return !isSold || partiallySoldAmountLeft != 0;} //NOT INCLUDING EXPIRED
     public int getPartiallySoldAmountLeft() {return partiallySoldAmountLeft;}
-    public String getAdminMessage() {return adminMessage;}
+    public String getAdminMessage() {return StringUtils.escapeMiniMessage(adminMessage);}
     public UUID getNoteID() {return noteID;}
     public String getItemName() {
         if (itemName == null || itemName.isEmpty()) {
@@ -205,7 +205,7 @@ public class ItemNote {
         if (itemName == null || itemName.isEmpty()) {
             itemName = "Unknown";
         }
-        return StringUtils.stripLegacySection(itemName);
+        return StringUtils.escapeMiniMessage(StringUtils.stripLegacySection(itemName));
     }
     /** Raw Base64-encoded item payload (as written by {@link ItemStackConverter}). */
     public String getItemData() { return itemData; }

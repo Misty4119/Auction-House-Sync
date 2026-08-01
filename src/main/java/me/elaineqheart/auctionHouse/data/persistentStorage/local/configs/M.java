@@ -19,7 +19,6 @@ import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.text.DecimalFormat;
@@ -231,55 +230,35 @@ public class M extends Config {
 
     /** Get the formatted lore as a list of Components, split on {@code &n}. */
     public static List<Component> getLoreComponents(String key, String... replacements) {
-        if (isBlank(key)) {
-            return List.of();
-        }
-        String message = replacePlaceholders(key, getRaw(key, false), replacements);
-        String[] lines = message.split("&n", -1);
-        List<Component> out = new ArrayList<>(lines.length);
-        for (String line : lines) {
-            out.add(toComponent(line));
-        }
-        return out;
+        return getLoreComponents(key, null, replacements);
     }
 
     public static List<Component> getLoreComponents(String key, double price, String... replacements) {
+        return getLoreComponents(key, new double[]{price}, replacements);
+    }
+
+    /** Resolve multiple price placeholders before MiniMessage parses the lore. */
+    public static List<Component> getLoreComponents(String key, double firstPrice,
+                                                     double secondPrice, double... remainingPrices) {
+        double[] prices = new double[remainingPrices.length + 2];
+        prices[0] = firstPrice;
+        prices[1] = secondPrice;
+        System.arraycopy(remainingPrices, 0, prices, 2, remainingPrices.length);
+        return getLoreComponents(key, prices);
+    }
+
+    public static List<Component> getLoreComponents(String key, double[] prices, String... replacements) {
         if (isBlank(key)) {
             return List.of();
         }
         String message = replacePlaceholders(key, getRaw(key, false), replacements);
-        message = replace(message, price);
+        if (prices != null && prices.length > 0) message = replace(message, prices);
         String[] lines = message.split("&n", -1);
         List<Component> out = new ArrayList<>(lines.length);
         for (String line : lines) {
             out.add(toComponent(line));
         }
         return out;
-    }
-
-    /**
-     * Replace placeholders in an already-fetched lore list, then convert the
-     * result back to Components. Used when the source lore needs additional
-     * price-aware replacements that don't live in the message key itself
-     * (e.g. {@code items.submit-another-bid.lore} has three independent
-     * prices).
-     */
-    public static List<Component> applyPriceReplacements(List<Component> lore, double... prices) {
-        if (lore == null || lore.isEmpty() || prices == null || prices.length == 0) {
-            return lore == null ? Collections.emptyList() : lore;
-        }
-        String joined = toLegacy(Component.join(joinSeparator(), lore));
-        joined = replace(joined, prices);
-        String[] lines = joined.split("\n", -1);
-        List<Component> out = new ArrayList<>(lines.length);
-        for (String line : lines) {
-            out.add(toComponent(line));
-        }
-        return out;
-    }
-
-    private static Component joinSeparator() {
-        return Component.newline();
     }
 
     // -----------------------------------------------------------------
@@ -466,7 +445,7 @@ public class M extends Config {
             return "";
         }
         String template = get().getString(templateKey, "%player_name%");
-        String result = template.replace("%player_name%", playerName);
+        String result = template.replace("%player_name%", MM.escapeTags(playerName));
 
         if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI") && playerID != null) {
             OfflinePlayer target = Bukkit.getOfflinePlayer(playerID);

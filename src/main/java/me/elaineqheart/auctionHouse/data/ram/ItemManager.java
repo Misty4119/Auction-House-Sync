@@ -551,9 +551,7 @@ public class ItemManager {
             meta.lore(M.getLoreComponents("items.submit-bid.lore", amount));
         } else {
             meta.displayName(M.getFormattedComponent("items.submit-another-bid.name", amount));
-            List<Component> lore = M.getLoreComponents("items.submit-another-bid.lore");
-            lore = M.applyPriceReplacements(lore, amount, previousBid, amount-previousBid);
-            meta.lore(lore);
+            meta.lore(M.getLoreComponents("items.submit-another-bid.lore", amount, previousBid, amount-previousBid));
         }
         item.setItemMeta(meta);
         return item;
@@ -581,9 +579,7 @@ public class ItemManager {
         ItemMeta meta = item.getItemMeta();
         assert meta != null;
         meta.displayName(M.getFormattedComponent("items.top-bid.name", amount));
-        List<Component> lore = M.getLoreComponents("items.top-bid.lore");
-        lore = M.applyPriceReplacements(lore, amount, newBid);
-        meta.lore(lore);
+        meta.lore(M.getLoreComponents("items.top-bid.lore", amount, newBid));
         item.setItemMeta(meta);
         return item;
     }
@@ -622,10 +618,9 @@ public class ItemManager {
         ItemMeta meta = item.getItemMeta();
         assert meta != null;
         meta.displayName(M.getFormattedComponent("items.collect-coins.name"));
-        List<Component> lore = M.getLoreComponents("items.collect-coins.lore", note.getBidHistoryList().getLast().getPrice(),
-                "%player%", M.toPlain(M.formatPlayerComponent(note.getLastBidderName(), note.getLastBidder())));
-        lore = M.applyPriceReplacements(lore, note.getBidHistoryList().getLast().getPrice(), note.getBid(p));
-        meta.lore(lore);
+        meta.lore(M.getLoreComponents("items.collect-coins.lore",
+                new double[]{note.getBidHistoryList().getLast().getPrice(), note.getBid(p)},
+                "%player%", M.toPlain(M.formatPlayerComponent(note.getLastBidderName(), note.getLastBidder()))));
         item.setItemMeta(meta);
         return item;
     }

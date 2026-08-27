@@ -21,26 +21,28 @@ import org.bukkit.potion.PotionType;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
 public class ItemNote {
 
     private final String playerName;
-    private String buyerName;
-    private UUID buyerUUID;
+    private volatile String buyerName;
+    private volatile UUID buyerUUID;
     private final UUID playerUUID;
-    private double price;
+    private volatile double price;
     private final Date dateCreated;
-    private String itemData;
-    private boolean isSold;
-    private int partiallySoldAmountLeft;
+    private volatile String itemData;
+    private volatile boolean isSold;
+    private volatile int partiallySoldAmountLeft;
     private final UUID noteID;
-    private String adminMessage;
-    private long auctionTime;
-    private String itemName;
+    private volatile String adminMessage;
+    private volatile long auctionTime;
+    private volatile String itemName;
     private final boolean isBIDAuction;
-    private List<Bid> bidHistory = new ArrayList<>();
-    private Set<UUID> claimedPlayers = new HashSet<>();
+    private List<Bid> bidHistory = new CopyOnWriteArrayList<>();
+    private Set<UUID> claimedPlayers = ConcurrentHashMap.newKeySet();
 
     public ItemNote(Player player, ItemStack item, double price, boolean isBIDAuction) {
         this.noteID = UUID.randomUUID();
@@ -210,7 +212,7 @@ public class ItemNote {
     /** Raw Base64-encoded item payload (as written by {@link ItemStackConverter}). */
     public String getItemData() { return itemData; }
     public List<Bid> getBidHistoryList() {
-        if(bidHistory == null) bidHistory = new ArrayList<>();
+        if(bidHistory == null) bidHistory = new CopyOnWriteArrayList<>();
         return bidHistory;
     }
     public boolean hasBidHistory() {return bidHistory != null && !bidHistory.isEmpty();}
@@ -230,7 +232,7 @@ public class ItemNote {
                 .orElse(0.0);
     }
     public Set<UUID> getClaimedPlayers() {
-        if(claimedPlayers == null) claimedPlayers = new HashSet<>();
+        if(claimedPlayers == null) claimedPlayers = ConcurrentHashMap.newKeySet();
         return claimedPlayers;
     }
     public boolean canClaimBid(UUID playerID) {return !getClaimedPlayers().contains(playerID);}
@@ -245,11 +247,11 @@ public class ItemNote {
      * layer so the loaded row's value is preserved 1:1.
      */
     public long getAuctionTimeSnapshot() { return auctionTime; }
-    public void addBid(Player player, double bid) {
+    public synchronized void addBid(Player player, double bid) {
         // Deduplicate: if the same player is somehow already the latest
         // bidder at the same price, skip the append. Keeps the bid list
         // sane when the addBid path is re-invoked (e.g. via a replay).
-        if (bidHistory == null) bidHistory = new ArrayList<>();
+        if (bidHistory == null) bidHistory = new CopyOnWriteArrayList<>();
         if (!bidHistory.isEmpty()) {
             Bid last = bidHistory.get(bidHistory.size() - 1);
             if (last != null && last.getPlayerID() != null
@@ -277,21 +279,21 @@ public class ItemNote {
     public void setPrice(double amount) {this.price = amount;}
 
     /** Used by the multi-server sync layer to replace the bid list atomically. */
-    public void resetBidHistory() {
-        if (bidHistory == null) bidHistory = new ArrayList<>();
+    public synchronized void resetBidHistory() {
+        if (bidHistory == null) bidHistory = new CopyOnWriteArrayList<>();
         else bidHistory.clear();
-        if (claimedPlayers == null) claimedPlayers = new HashSet<>();
+        if (claimedPlayers == null) claimedPlayers = ConcurrentHashMap.newKeySet();
         else claimedPlayers.clear();
     }
 
     /** Append a {@link Bid} to the history without touching player-refund side effects. */
-    public void appendBid(Bid bid) {
-        if (bidHistory == null) bidHistory = new ArrayList<>();
+    public synchronized void appendBid(Bid bid) {
+        if (bidHistory == null) bidHistory = new CopyOnWriteArrayList<>();
         bidHistory.add(bid);
     }
 
     /** Used by the multi-server sync layer when replaying bids from a remote source. */
-    public void addBidFromDto(me.elaineqheart.auctionHouse.data.persistentStorage.database.RedisNoteStorage.BidDto dto) {
+    public synchronized void addBidFromDto(me.elaineqheart.auctionHouse.data.persistentStorage.database.RedisNoteStorage.BidDto dto) {
         if (dto == null) return;
         UUID id = null;
         if (dto.playerId != null) {

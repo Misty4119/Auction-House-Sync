@@ -182,14 +182,7 @@ public class SettingManager {
         cacheBackend       = parseCache(db.getString("cache"),       CacheBackend.REDIS);
         serverId = c.getString("server-id", serverId);
 
-        // Loud warning so admins catch the duplicate-id bug early — two nodes
-        // that share the same `server-id` will drop each other's pub/sub events.
-        if (serverId == null || serverId.isBlank() || "ah-server-CHANGE-ME".equals(serverId)) {
-            AuctionHouse.getInstance().getLogger().warning(
-                    "[AuctionHouse] server-id is unset or still the placeholder default ('" + serverId + "'). " +
-                            "Set a unique server-id in config.yml for EVERY node in the cluster, " +
-                            "otherwise events will be filtered out and the cluster will not stay in sync.");
-        }
+        if (serverId != null) serverId = serverId.trim();
 
         ConfigurationSection mysql = c.getConfigurationSection("database.mysql");
         if (mysql != null) {
@@ -269,6 +262,34 @@ public class SettingManager {
 
     public static boolean isMysqlPersistence() {
         return persistenceBackend == StorageBackend.MYSQL;
+    }
+
+    /** True when this node is configured for the shared MySQL/Redis cluster mode. */
+    public static boolean isRealtimeClusterMode() {
+        return isMysqlPersistence() && useRedisCache();
+    }
+
+    /**
+     * Returns a configuration error that would make immediate cluster
+     * convergence impossible, or {@code null} when the local settings are
+     * suitable for the shared MySQL/Redis mode.
+     */
+    public static String realtimeClusterConfigurationError() {
+        if (!isRealtimeClusterMode()) return null;
+        if (serverId == null || serverId.isBlank() || "ah-server-CHANGE-ME".equals(serverId)) {
+            return "server-id must be a unique, non-placeholder value on every node";
+        }
+        if (!redisPubsubEnabled) {
+            return "database.redis.pubsub-enabled must be true";
+        }
+        if (redisSyncSecret == null || redisSyncSecret.trim().length() < 32
+                || redisSyncSecret.toUpperCase(Locale.ROOT).contains("CHANGE-ME")) {
+            return "database.redis.sync-secret must be a shared non-placeholder secret of at least 32 characters";
+        }
+        if (redisChannel == null || redisChannel.isBlank()) {
+            return "database.redis.channel must not be blank";
+        }
+        return null;
     }
 
     /**

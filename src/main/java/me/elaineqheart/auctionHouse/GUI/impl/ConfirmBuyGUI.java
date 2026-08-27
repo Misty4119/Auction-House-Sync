@@ -151,14 +151,15 @@ public class ConfirmBuyGUI extends InventoryGUI{
                             Player seller = Bukkit.getPlayer(sellerUuid);
                             String viewCommand = "/ah view " + note.getNoteID();
                             if (seller != null && seller.isOnline()) {
-                                M.sendClickable(seller,
-                                        "chat.sold-message.prefix",
-                                        "chat.sold-message.interaction",
-                                        viewCommand,
-                                        "%buyer%", buyer,
-                                        "%item%", itemName,
-                                        "%amount%", amount,
-                                        "%price%", priceStr);
+                                AuctionHouse.getGuiManager().runForPlayer(seller, () ->
+                                        M.sendClickable(seller,
+                                                "chat.sold-message.prefix",
+                                                "chat.sold-message.interaction",
+                                                viewCommand,
+                                                "%buyer%", buyer,
+                                                "%item%", itemName,
+                                                "%amount%", amount,
+                                                "%price%", priceStr));
                                 CrossServerMessenger.sendToPlayerRemoteOnly(sellerUuid,
                                         "chat.sold-message.prefix",
                                         "%buyer%", buyer,

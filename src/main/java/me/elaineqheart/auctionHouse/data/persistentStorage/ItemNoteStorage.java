@@ -19,6 +19,7 @@ import org.bukkit.inventory.ItemStack;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
 /**
@@ -43,7 +44,7 @@ import java.util.logging.Logger;
  */
 public class ItemNoteStorage {
 
-    private static final HashMap<UUID, ItemStack> items = new HashMap<>();
+    private static final Map<UUID, ItemStack> items = new ConcurrentHashMap<>();
 
     public static ItemStack getItem(UUID itemNoteID) { return items.get(itemNoteID); }
     public static void addItem(UUID itemNoteID, ItemStack item) {

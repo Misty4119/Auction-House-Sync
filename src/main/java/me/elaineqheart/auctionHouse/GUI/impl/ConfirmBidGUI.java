@@ -140,21 +140,22 @@ public class ConfirmBidGUI extends InventoryGUI {
                         String diffStr = StringUtils.formatPrice(difference <= 0 ? price : difference, false);
                         Player localBidder = Bukkit.getPlayer(id);
                         if (localBidder != null && localBidder.isOnline()) {
-                            M.sendClickable(localBidder,
-                                    "chat.outbid.prefix",
-                                    "chat.outbid.interaction",
-                                    viewCommand,
-                                    "%player%", newBidderFormatted,
-                                    "%item%", itemName,
-                                    "%price%", diffStr);
+                            AuctionHouse.getGuiManager().runForPlayer(localBidder, () -> {
+                                M.sendClickable(localBidder,
+                                        "chat.outbid.prefix",
+                                        "chat.outbid.interaction",
+                                        viewCommand,
+                                        "%player%", newBidderFormatted,
+                                        "%item%", itemName,
+                                        "%price%", diffStr);
+                                AuctionViewGUI view = AuctionViewGUI.currentGUIs.get(localBidder);
+                                if (view != null) view.update();
+                            });
                             CrossServerMessenger.sendToPlayerRemoteOnly(id,
                                     "chat.outbid.prefix",
                                     "%player%", newBidderFormatted,
                                     "%item%", itemName,
                                     "%price%", diffStr);
-                            if(AuctionViewGUI.currentGUIs.get(localBidder) != null) {
-                                AuctionViewGUI.currentGUIs.get(localBidder).update();
-                            }
                         } else {
                             CrossServerMessenger.sendToPlayer(id,
                                     "chat.outbid.prefix",
@@ -164,7 +165,12 @@ public class ConfirmBidGUI extends InventoryGUI {
                         }
                     }
                     Player itemOwner = Bukkit.getPlayer(note.getPlayerUUID());
-                    if (itemOwner != null && AuctionViewGUI.currentGUIs.get(itemOwner) != null) AuctionViewGUI.currentGUIs.get(itemOwner).update();
+                    if (itemOwner != null) {
+                        AuctionHouse.getGuiManager().runForPlayer(itemOwner, () -> {
+                            AuctionViewGUI view = AuctionViewGUI.currentGUIs.get(itemOwner);
+                            if (view != null) view.update();
+                        });
+                    }
                 });
     }
     private InventoryButton cancel(){

@@ -72,6 +72,13 @@ public final class AuctionHouse extends JavaPlugin {
 
         ConfigManager.setupConfigs();
 
+        String clusterConfigurationError = SettingManager.realtimeClusterConfigurationError();
+        if (clusterConfigurationError != null) {
+            log.severe("[AuctionHouse] Refusing to start shared MySQL/Redis mode: " + clusterConfigurationError + ".");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+
         // ----- Multi-server database bring-up -----
         log.info("[AuctionHouse] Persistence backend: " + SettingManager.persistenceBackend);
         log.info("[AuctionHouse] Cache backend:        " + SettingManager.cacheBackend);
@@ -92,8 +99,12 @@ public final class AuctionHouse extends JavaPlugin {
             if (RedisManager.isAvailable()) {
                 log.info("[AuctionHouse] Redis pool ready (server-id=" + SettingManager.serverId + ").");
             } else {
-                log.warning("[AuctionHouse] Redis was configured but the pool did NOT become available. " +
-                        "Cross-server sync will be disabled until the connection comes back.");
+                if (SettingManager.isRealtimeClusterMode()) {
+                    log.severe("[AuctionHouse] Redis is unavailable; refusing to start because shared cluster mode requires real-time sync.");
+                    getServer().getPluginManager().disablePlugin(this);
+                    return;
+                }
+                log.warning("[AuctionHouse] Redis was configured but the pool did NOT become available.");
             }
         }
         // ------------------------------------------
@@ -138,6 +149,11 @@ public final class AuctionHouse extends JavaPlugin {
 
         if (SettingManager.useRedisCache() && RedisManager.isAvailable()) {
             RedisSyncManager.start();
+            if (SettingManager.isRealtimeClusterMode() && !RedisSyncManager.isRunning()) {
+                log.severe("[AuctionHouse] Redis subscriber did not start; refusing to run a partially synchronized cluster.");
+                getServer().getPluginManager().disablePlugin(this);
+                return;
+            }
             log.info("[AuctionHouse] Cross-server sync subscription enabled.");
         }
 

@@ -5,7 +5,7 @@ plugins {
 }
 
 group = 'me.elaineqheart'
-version = '2.0.5'
+version = '2.1.0'
 
 repositories {
     mavenCentral()
@@ -29,8 +29,8 @@ repositories {
 
 //alt + ins
 dependencies {
-    // Compile against the exact API shipped by canvas-build.923.jar.
-    compileOnly("io.canvasmc.canvas:canvas-api:26.2.build.923-stable")
+    // Keep the compile API aligned with the Canvas runtime used in production.
+    compileOnly("io.canvasmc.canvas:canvas-api:26.2.build.937-stable")
     compileOnly("com.github.MilkBowl:VaultAPI:1.7") {
         exclude group: "org.bukkit", module: "bukkit"
     }
@@ -51,7 +51,7 @@ dependencies {
 
     testImplementation(platform("org.junit:junit-bom:5.11.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
-    testImplementation("io.canvasmc.canvas:canvas-api:26.2.build.923-stable")
+    testImplementation("io.canvasmc.canvas:canvas-api:26.2.build.937-stable")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

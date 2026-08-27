@@ -150,6 +150,11 @@ public final class RedisSyncManager {
         SUBSCRIBER_STARTED.set(false);
     }
 
+    /** Indicates that the pub/sub subscriber has been scheduled successfully. */
+    public static boolean isRunning() {
+        return SUBSCRIBER_STARTED.get() && SUBSCRIBER != null && SUBSCRIBER.isAlive();
+    }
+
     /** Broadcast a UPSERT (create or update) to other servers. */
     public static void publishUpsert(ItemNote note, Map<String, String> hash) {
         if (!SettingManager.useRedisCache()) return;
@@ -899,7 +904,8 @@ public final class RedisSyncManager {
         for (Player online : Bukkit.getOnlinePlayers()) {
             if (exclude != null && online.getUniqueId().equals(exclude)) continue;
             if (!ConfigManager.playerPreferences.hasAnnouncementsEnabled(online.getUniqueId())) continue;
-            M.send(online, p.messageKey, params);
+            AuctionHouse.getGuiManager().runForPlayer(online,
+                    () -> M.send(online, p.messageKey, params));
         }
     }
 
@@ -919,7 +925,9 @@ public final class RedisSyncManager {
         catch (Exception ex) { return; }
         Player online = Bukkit.getPlayer(target);
         if (online == null) return;
-        M.send(online, p.messageKey, buildChatParams(p));
+        String[] params = buildChatParams(p);
+        AuctionHouse.getGuiManager().runForPlayer(online,
+                () -> M.send(online, p.messageKey, params));
     }
 
     private static String[] buildChatParams(ChatPayload p) {

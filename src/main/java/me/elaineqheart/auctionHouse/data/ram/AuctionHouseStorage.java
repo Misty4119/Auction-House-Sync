@@ -56,7 +56,7 @@ public class AuctionHouseStorage {
                 .collect(Collectors.toList()));
     }
 
-    public static void add(ItemNote note) {
+    public static synchronized void add(ItemNote note) {
         addToLists(note);
         updateSortedLists();
     }
@@ -67,7 +67,7 @@ public class AuctionHouseStorage {
      * derived from the (now-empty) whitelist cache, which the caller can
      * re-register afterwards if needed.
      */
-    public static void set(ItemNote[] notes) {
+    public static synchronized void set(ItemNote[] notes) {
         clear();
         if (notes == null) return;
         for (ItemNote note : notes) {
@@ -82,7 +82,7 @@ public class AuctionHouseStorage {
      * List-based overload of {@link #set(ItemNote[])} — preferred because the
      * list version tolerates {@code null} elements without crashing.
      */
-    public static void replaceAll(List<ItemNote> list) {
+    public static synchronized void replaceAll(List<ItemNote> list) {
         clear();
         if (list == null) return;
         for (ItemNote note : list) {
@@ -97,7 +97,7 @@ public class AuctionHouseStorage {
      * Drop every note from the in-memory mirror. Public so the purge path
      * can wipe RAM without going through the GUI.
      */
-    public static void clear() {
+    public static synchronized void clear() {
         notes.clear();
         itemNotes.clear();
         sortedHighestPrice.clear();
@@ -110,14 +110,14 @@ public class AuctionHouseStorage {
         categories.clear();
     }
 
-    public static void remove(ItemNote item) {
+    public static synchronized void remove(ItemNote item) {
         removeFromLists(item.getNoteID());
         if(!item.isBIDAuction() || !item.hasBidHistory()) notes.remove(item.getNoteID());
     }
 
-    public static boolean canCollectBid(ItemNote item, UUID player) {return !item.getClaimedPlayers().contains(player);}
+    public static synchronized boolean canCollectBid(ItemNote item, UUID player) {return !item.getClaimedPlayers().contains(player);}
 
-    public static void removeBid(UUID player, UUID noteID) {
+    public static synchronized void removeBid(UUID player, UUID noteID) {
         if(sortedBids.containsKey(player)) sortedBids.get(player).remove(noteID);
         if(sortedPlayers.containsKey(noteID)) {
             sortedPlayers.get(noteID).remove(player);
@@ -155,11 +155,11 @@ public class AuctionHouseStorage {
         }
     }
 
-    public static List<ItemNote> getAll() {
+    public static synchronized List<ItemNote> getAll() {
         return itemNotes.stream().map(notes::get).toList(); //keep order
     }
 
-    public static List<ItemNote> getSortedList(ItemNoteStorage.SortMode mode, AhConfiguration c){
+    public static synchronized List<ItemNote> getSortedList(ItemNoteStorage.SortMode mode, AhConfiguration c){
         String search = c == null ? "" : c.getCurrentSearch();
         List<UUID> list;
         switch (mode) {
@@ -196,12 +196,12 @@ public class AuctionHouseStorage {
         return base.collect(Collectors.toList());
     }
 
-    public static void applyWhitelist(List<ItemNote> notes, List<Map<?, ?>> whitelist) {
+    public static synchronized void applyWhitelist(List<ItemNote> notes, List<Map<?, ?>> whitelist) {
         if(!categories.containsKey(whitelist)) {addWhiteList(whitelist);}
         notes.removeIf(note -> categories.get(whitelist).contains(note.getNoteID()));
     }
 
-    public static List<ItemNote> getMySortedDateCreated(UUID playerID){ //use only for online players
+    public static synchronized List<ItemNote> getMySortedDateCreated(UUID playerID){ //use only for online players
         return itemNotes.stream()
                 .map(notes::get)
                 .filter(note -> Objects.equals(note.getPlayerUUID(), playerID))
@@ -209,15 +209,15 @@ public class AuctionHouseStorage {
                 .toList(); // toList() makes it unmodifiable
     }
 
-    public static int getNumberOfAuctions(UUID playerID) {
+    public static synchronized int getNumberOfAuctions(UUID playerID) {
         return getMySortedDateCreated(playerID).size();
     }
 
-    public static ItemNote getNote(UUID noteID) {
+    public static synchronized ItemNote getNote(UUID noteID) {
         return notes.get(noteID);
     }
 
-    public static List<ItemNote> getMyBids(UUID playerID) {
+    public static synchronized List<ItemNote> getMyBids(UUID playerID) {
         if(!sortedBids.containsKey(playerID)) return List.of();
         return sortedBids.get(playerID).stream()
                 .map(notes::get)
@@ -225,7 +225,7 @@ public class AuctionHouseStorage {
                 .toList();
     }
 
-    public static void addBid(UUID playerID, UUID noteID) {
+    public static synchronized void addBid(UUID playerID, UUID noteID) {
         sortedBids.computeIfAbsent(playerID, k -> new ArrayList<>());
         List<UUID> bids = sortedBids.get(playerID);
         if(!bids.contains(noteID)) bids.addFirst(noteID);

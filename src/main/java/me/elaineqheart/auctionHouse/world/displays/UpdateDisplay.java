@@ -23,46 +23,61 @@ import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.util.Vector;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 public class UpdateDisplay implements Runnable {
 
     private static final AuctionHouse instance = AuctionHouse.getInstance();
 
-    private static final HashMap<Integer, DisplayNote> displayItems = new HashMap<>();
-    private static final Set<Location> locations = new HashSet<>();
-    private static final Set<UUID> interactions = new HashSet<>();
-    public static HashMap<Integer, DisplayNote> getDisplayItems() {return displayItems;}
-    public static Set<Location> getLocations() {return locations;}
-    public static Set<UUID> getInteractions() {return interactions;}
+    private static final Map<Integer, DisplayNote> displayItems = new ConcurrentHashMap<>();
+    private static final Set<Location> locations = ConcurrentHashMap.newKeySet();
+    private static final Set<UUID> interactions = ConcurrentHashMap.newKeySet();
+
+    public static Map<Integer, DisplayNote> getDisplayItems() {
+        return displayItems;
+    }
+
+    public static Set<Location> getLocations() {
+        return locations;
+    }
+
+    public static Set<UUID> getInteractions() {
+        return interactions;
+    }
 
     public static void init() {
         reload(true);
-        instance.getScheduler().globalRegionalScheduler().runAtFixedRate(new UpdateDisplay(), 10, SettingManager.displayUpdateTicks);
+        instance.getScheduler().globalRegionalScheduler().runAtFixedRate(new UpdateDisplay(), 10,
+                SettingManager.displayUpdateTicks);
     }
 
-    //TODO: split into entity and block modifications
-    //https://github.com/papermc/folia
-    //https://docs.papermc.io/paper/dev/folia-support/
-    //https://docs.papermc.io/folia/reference/overview/
+    // TODO: split into entity and block modifications
+    // https://github.com/papermc/folia
+    // https://docs.papermc.io/paper/dev/folia-support/
+    // https://docs.papermc.io/folia/reference/overview/
     @Override
     public void run() {
         for (Integer displayID : displayItems.keySet()) {
 
             DisplayNote data = displayItems.get(displayID);
-            if (data == null) continue;
+            if (data == null)
+                continue;
 
-            AuctionHouse.getInstance().getScheduler().regionSpecificScheduler(data.location).run(() -> updateDisplay(displayID, data));
+            AuctionHouse.getInstance().getScheduler().regionSpecificScheduler(data.location)
+                    .run(() -> updateDisplay(displayID, data));
         }
     }
 
     private void updateDisplay(int displayID, DisplayNote data) {
-        if (data.glassUUID == null) return;
+        if (data.glassUUID == null)
+            return;
         data.glassBlock = (BlockDisplay) Bukkit.getEntity(data.glassUUID);
         data.itemEntity = data.itemUUID == null ? null : (Item) Bukkit.getEntity(data.itemUUID);
         data.text = data.textUUID == null ? null : (TextDisplay) Bukkit.getEntity(data.textUUID);
 
-        if (data.glassBlock == null || data.glassBlock.isDead()) return;
+        if (data.glassBlock == null || data.glassBlock.isDead())
+            return;
 
         ItemNote itemNote = getNote(data.sortType, data.rank);
 
@@ -108,10 +123,14 @@ public class UpdateDisplay implements Runnable {
 
         String time = StringUtils.getTimeTrimmed(note.getTimeLeft());
         for (Sign sign : signs) {
-            sign.getSide(Side.FRONT).setLine(0, toSignLine(M.getFormattedComponent("world.displays.line-0", note.getPrice(), "%time%", time)));
-            sign.getSide(Side.FRONT).setLine(1, toSignLine(M.getFormattedComponent("world.displays.line-1", note.getPrice(), "%time%", time)));
-            sign.getSide(Side.FRONT).setLine(2, toSignLine(M.getFormattedComponent("world.displays.line-2", note.getPrice(), "%time%", time)));
-            sign.getSide(Side.FRONT).setLine(3, toSignLine(M.getFormattedComponent("world.displays.line-3", note.getPrice(), "%time%", time)));
+            sign.getSide(Side.FRONT).setLine(0,
+                    toSignLine(M.getFormattedComponent("world.displays.line-0", note.getPrice(), "%time%", time)));
+            sign.getSide(Side.FRONT).setLine(1,
+                    toSignLine(M.getFormattedComponent("world.displays.line-1", note.getPrice(), "%time%", time)));
+            sign.getSide(Side.FRONT).setLine(2,
+                    toSignLine(M.getFormattedComponent("world.displays.line-2", note.getPrice(), "%time%", time)));
+            sign.getSide(Side.FRONT).setLine(3,
+                    toSignLine(M.getFormattedComponent("world.displays.line-3", note.getPrice(), "%time%", time)));
             sign.update(true, false);
         }
     }
@@ -120,9 +139,10 @@ public class UpdateDisplay implements Runnable {
         return LegacyComponentSerializer.legacySection().serialize(component);
     }
 
-    private boolean updateItemEntity(DisplayNote data, ItemStack itemStack) { //true -> update DisplayNote
+    private boolean updateItemEntity(DisplayNote data, ItemStack itemStack) { // true -> update DisplayNote
         if (itemStack == null) {
-            if (data.itemEntity == null) return false;
+            if (data.itemEntity == null)
+                return false;
             data.itemEntity.remove();
             data.itemUUID = null;
             return true;
@@ -131,13 +151,16 @@ public class UpdateDisplay implements Runnable {
         boolean reload = false;
         if (data.itemEntity == null) {
             reload = true;
-            if (data.location.getWorld() == null) return false;
-            data.itemEntity = (Item) data.location.getWorld().spawnEntity(data.location.clone().add(0.5, 1, 0.5), EntityType.ITEM);
+            if (data.location.getWorld() == null)
+                return false;
+            data.itemEntity = (Item) data.location.getWorld().spawnEntity(data.location.clone().add(0.5, 1, 0.5),
+                    EntityType.ITEM);
             data.itemEntity.setPickupDelay(32767);
-            data.itemEntity.setUnlimitedLifetime(true); //will never decay
+            data.itemEntity.setUnlimitedLifetime(true); // will never decay
             data.itemEntity.setInvulnerable(true);
-            data.itemEntity.setVelocity(new Vector(0,0,0)); //a spawned item always has a velocity
-            data.itemEntity.getPersistentDataContainer().set(new NamespacedKey(AuctionHouse.getInstance(), "display_item"),
+            data.itemEntity.setVelocity(new Vector(0, 0, 0)); // a spawned item always has a velocity
+            data.itemEntity.getPersistentDataContainer().set(
+                    new NamespacedKey(AuctionHouse.getInstance(), "display_item"),
                     PersistentDataType.BOOLEAN, true);
             data.itemUUID = data.itemEntity.getUniqueId();
         }
@@ -149,9 +172,12 @@ public class UpdateDisplay implements Runnable {
         }
         return reload;
     }
-    private boolean updateTextEntity(DisplayNote data, String itemName, String playerName) { // true -> update DisplayNote
+
+    private boolean updateTextEntity(DisplayNote data, String itemName, String playerName) { // true -> update
+                                                                                             // DisplayNote
         if (itemName == null) {
-            if (data.text == null) return false;
+            if (data.text == null)
+                return false;
             data.text.remove();
             data.textUUID = null;
             return true;
@@ -160,8 +186,10 @@ public class UpdateDisplay implements Runnable {
         boolean reload = false;
         if (data.text == null) {
             reload = true;
-            if (data.location.getWorld() == null) return false;
-            data.text = (TextDisplay) data.location.getWorld().spawnEntity(data.location.clone().add(0.5, 1.9, 0.5), EntityType.TEXT_DISPLAY);
+            if (data.location.getWorld() == null)
+                return false;
+            data.text = (TextDisplay) data.location.getWorld().spawnEntity(data.location.clone().add(0.5, 1.9, 0.5),
+                    EntityType.TEXT_DISPLAY);
             data.text.setVisibleByDefault(true);
             data.text.getPersistentDataContainer().set(
                     new NamespacedKey(AuctionHouse.getInstance(), "display_text"), PersistentDataType.BOOLEAN, true);
@@ -180,13 +208,14 @@ public class UpdateDisplay implements Runnable {
     }
 
     private static Component buildTextDisplayMessage(int rank, String itemName, String playerName,
-                                                     TextColor rankColour) {
+            TextColor rankColour) {
         Component rankComponent = Component.text("#" + rank).color(rankColour);
         Component itemComponent = Component.text(itemName == null ? "" : itemName)
                 .decoration(TextDecoration.ITALIC, true)
                 .color(NamedTextColor.WHITE);
         Component byPlayer = M.getFormattedComponent("world.displays.by-player", "%player%", playerName);
-        return Component.empty().append(rankComponent).append(Component.space()).append(itemComponent).appendNewline().append(byPlayer);
+        return Component.empty().append(rankComponent).append(Component.space()).append(itemComponent).appendNewline()
+                .append(byPlayer);
     }
 
     private static Sign[] getSigns(Location loc, int rank, String sortType) {
@@ -209,18 +238,32 @@ public class UpdateDisplay implements Runnable {
         locations.clear();
         interactions.clear();
         displayItems.putAll(ConfigManager.displays.getNotes());
-        locations.addAll(displayItems.values().stream().map(entry -> entry.location).collect(Collectors.toSet()));
-        interactions.addAll(displayItems.values().stream().map(entry -> entry.interactionUUID).collect(Collectors.toSet()));
-        if (justUpdateLists) return;
-        for (DisplayNote data : displayItems.values()) {
-            if (data == null) continue;
-            if (!data.location.getBlock().getBlockData().matches(SettingManager.getDisplayBase(data.sortType, data.rank)))
-                CreateDisplay.placeBlocks(data.location, data.rank, data.sortType);
+        locations.addAll(displayItems.values().stream()
+                .map(entry -> entry.location)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet()));
+        interactions.addAll(displayItems.values().stream()
+                .map(entry -> entry.interactionUUID)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet()));
+        if (justUpdateLists)
+            return;
+
+        UpdateDisplay updater = new UpdateDisplay();
+        for (Map.Entry<Integer, DisplayNote> entry : List.copyOf(displayItems.entrySet())) {
+            Integer displayId = entry.getKey();
+            DisplayNote data = entry.getValue();
+            if (displayId == null || data == null || data.location == null)
+                continue;
+            AuctionHouse.getInstance().getScheduler().regionSpecificScheduler(data.location).run(() -> {
+                if (!data.location.getBlock().getBlockData()
+                        .matches(SettingManager.getDisplayBase(data.sortType, data.rank))) {
+                    CreateDisplay.placeBlocks(data.location, data.rank, data.sortType);
+                }
+                updater.updateDisplay(displayId, data);
+            });
         }
-        new UpdateDisplay().run(); //reload
     }
-
-
 
     public static ItemNote getNote(String type, int rank) {
         if (type.equals("highest_price")) {
@@ -240,7 +283,8 @@ public class UpdateDisplay implements Runnable {
                 .findFirst()
                 .orElse(null);
         if (id == null) {
-            AuctionHouse.getInstance().getLogger().warning("Display at location " + loc + " not found. Failed to remove it.");
+            AuctionHouse.getInstance().getLogger()
+                    .warning("Display at location " + loc + " not found. Failed to remove it.");
             return;
         }
         DisplayNote data = displayItems.remove(id);
@@ -250,48 +294,55 @@ public class UpdateDisplay implements Runnable {
             AuctionHouse.getInstance().getLogger().warning("Display at location " + loc + " is null.");
             return;
         }
-        if (removeBlocks) removeBlocks(loc);
-        if (data.itemUUID != null) {
-            Item itemEntity = (Item) Bukkit.getEntity(data.itemUUID);
-            if (itemEntity != null) itemEntity.remove();
-        }
-        if (data.glassUUID != null) {
-            safeRemoveGlass((BlockDisplay) Bukkit.getEntity(data.glassUUID));
-        }
-        if (data.textUUID != null) {
-            TextDisplay textDisplay = (TextDisplay) Bukkit.getEntity(data.textUUID);
-            if (textDisplay != null) textDisplay.remove();
-        }
-        if (data.interactionUUID != null) {
-            safeRemoveInteraction((Interaction) Bukkit.getEntity(data.interactionUUID));
-        }
+        if (removeBlocks)
+            removeBlocks(loc);
+        Location displayLocation = (data.location == null ? loc : data.location).clone();
+        AuctionHouse.getInstance().getScheduler().regionSpecificScheduler(displayLocation).run(() -> {
+            if (data.itemUUID != null) {
+                Item itemEntity = (Item) Bukkit.getEntity(data.itemUUID);
+                if (itemEntity != null)
+                    itemEntity.remove();
+            }
+            if (data.glassUUID != null) {
+                safeRemoveGlass((BlockDisplay) Bukkit.getEntity(data.glassUUID));
+            }
+            if (data.textUUID != null) {
+                TextDisplay textDisplay = (TextDisplay) Bukkit.getEntity(data.textUUID);
+                if (textDisplay != null)
+                    textDisplay.remove();
+            }
+            if (data.interactionUUID != null) {
+                safeRemoveInteraction((Interaction) Bukkit.getEntity(data.interactionUUID));
+            }
+        });
         reload(false);
     }
 
     private static void removeBlocks(Location loc) {
-        Location cLoc = loc.clone();
-        cLoc.getBlock().setType(Material.AIR);
-        cLoc.add(1, 0, 0).getBlock().setType(Material.AIR);
-        cLoc.add(-2, 0, 0).getBlock().setType(Material.AIR);
-        cLoc.add(1, 0, -1).getBlock().setType(Material.AIR);
-        cLoc.add(0, 0, 2).getBlock().setType(Material.AIR);
-        cLoc.add(0, 0, -1).getBlock().setType(Material.AIR);
+        int[][] offsets = { { 0, 0 }, { 1, 0 }, { -1, 0 }, { 0, -1 }, { 0, 1 } };
+        for (int[] offset : offsets) {
+            Location blockLocation = loc.clone().add(offset[0], 0, offset[1]);
+            AuctionHouse.getInstance().getScheduler().regionSpecificScheduler(blockLocation)
+                    .run(() -> blockLocation.getBlock().setType(Material.AIR));
+        }
     }
 
     public static void safeRemoveInteraction(Interaction interaction) {
-        if (interaction == null || interaction.isDead()) return;
+        if (interaction == null || interaction.isDead())
+            return;
         for (NamespacedKey key : interaction.getPersistentDataContainer().getKeys()) {
             interaction.getPersistentDataContainer().remove(key);
         }
-        interaction.remove(); //entity remove event is called
+        interaction.remove(); // entity remove event is called
     }
 
     public static void safeRemoveGlass(BlockDisplay glass) {
-        if (glass == null || glass.isDead()) return;
+        if (glass == null || glass.isDead())
+            return;
         for (NamespacedKey key : glass.getPersistentDataContainer().getKeys()) {
             glass.getPersistentDataContainer().remove(key);
         }
-        glass.remove(); //entity remove event is called
+        glass.remove(); // entity remove event is called
     }
 
 }

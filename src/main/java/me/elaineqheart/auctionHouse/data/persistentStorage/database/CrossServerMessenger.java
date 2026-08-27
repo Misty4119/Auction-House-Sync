@@ -51,7 +51,8 @@ public final class CrossServerMessenger {
         for (Player online : Bukkit.getOnlinePlayers()) {
             if (excludePlayer != null && online.getUniqueId().equals(excludePlayer)) continue;
             if (!ConfigManager.playerPreferences.hasAnnouncementsEnabled(online.getUniqueId())) continue;
-            M.send(online, messageKey, placeholderPairs);
+            AuctionHouse.getGuiManager().runForPlayer(online,
+                    () -> M.send(online, messageKey, placeholderPairs));
         }
 
         // 2) Cross-server delivery.
@@ -81,7 +82,8 @@ public final class CrossServerMessenger {
         // 1) Local delivery (if the player is on this node).
         Player local = Bukkit.getPlayer(target);
         if (local != null && local.isOnline()) {
-            M.send(local, messageKey, placeholderPairs);
+            AuctionHouse.getGuiManager().runForPlayer(local,
+                    () -> M.send(local, messageKey, placeholderPairs));
         }
 
         // 2) Cross-server delivery.

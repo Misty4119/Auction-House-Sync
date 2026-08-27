@@ -45,16 +45,24 @@ public class GUIManager {
     public void runForPlayer(Player player, Runnable task) {
         if (player == null || task == null) return;
         AuctionHouse plugin = AuctionHouse.getInstance();
-        if (plugin == null) return;
-        plugin.getScheduler().entitySpecificScheduler(player).run(task, () -> {});
+        if (plugin == null || !plugin.isEnabled()) return;
+        try {
+            plugin.getScheduler().entitySpecificScheduler(player).run(task, () -> {});
+        } catch (IllegalStateException ignored) {
+            // The player may have left or the plugin may be shutting down.
+        }
     }
 
     public void runForPlayerDelayed(Player player, Runnable task, long delayTicks) {
         if (player == null || task == null) return;
         AuctionHouse plugin = AuctionHouse.getInstance();
-        if (plugin == null) return;
-        plugin.getScheduler().entitySpecificScheduler(player)
-                .runDelayed(task, () -> {}, Math.max(1L, delayTicks));
+        if (plugin == null || !plugin.isEnabled()) return;
+        try {
+            plugin.getScheduler().entitySpecificScheduler(player)
+                    .runDelayed(task, () -> {}, Math.max(1L, delayTicks));
+        } catch (IllegalStateException ignored) {
+            // The player may have left or the plugin may be shutting down.
+        }
     }
     public void openGUI(Player p, AhConfiguration c, AhConfiguration.View goBackTo) {
         if (goBackTo == AhConfiguration.View.AUCTION_HOUSE) openGUI(new AuctionHouseGUI(c), p);

@@ -1,8 +1,9 @@
 name: AuctionHouse
 version: '${version}'
 main: me.elaineqheart.auctionHouse.AuctionHouse
-api-version: '1.21'
+api-version: '26.2'
 folia-supported: true
+canvas-supported: true
 authors: [ ElaineQheart ]
 website: https://www.youtube.com/@elaineqheart
 depend: [ Vault ]

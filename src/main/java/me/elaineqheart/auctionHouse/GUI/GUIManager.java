@@ -5,7 +5,6 @@ import me.elaineqheart.auctionHouse.GUI.impl.AuctionHouseGUI;
 import me.elaineqheart.auctionHouse.GUI.impl.MyAuctionsGUI;
 import me.elaineqheart.auctionHouse.GUI.impl.MyBidsGUI;
 import me.elaineqheart.auctionHouse.data.ram.AhConfiguration;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
@@ -95,11 +94,11 @@ public class GUIManager {
     }
 
     public void forceCloseAll() {
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            runForPlayer(player, () -> {
-                if(this.activeInventories.containsKey(player.getOpenInventory().getTopInventory())) player.closeInventory();
-            });
-        }
+        // onDisable is invoked after Bukkit has marked this plugin disabled.
+        // Registering an entity task here is therefore illegal on Folia/Canvas.
+        // The server owns closing player inventories during shutdown; only release
+        // the plugin's references so no GUI state remains reachable.
+        this.activeInventories.clear();
     }
 
 }

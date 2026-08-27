@@ -3,7 +3,6 @@ package me.elaineqheart.auctionHouse.GUI.other;
 import me.elaineqheart.auctionHouse.AuctionHouse;
 import me.elaineqheart.auctionHouse.data.persistentStorage.local.configs.M;
 import me.elaineqheart.auctionHouse.data.ram.ItemManager;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -110,16 +109,9 @@ public class AnvilGUIManager implements Listener {
     }
 
     public void forceCloseAll() {
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            Inventory inv = player.getOpenInventory().getTopInventory();
-            if(activeInventories.containsKey(inv)) {
-                ItemStack paperItem = inv.getItem(0);
-                assert paperItem != null;
-                player.getOpenInventory().getTopInventory().remove(paperItem);
-                player.getOpenInventory().getBottomInventory().remove(paperItem);
-                AuctionHouse.getGuiManager().closeGUI(player);
-            }
-        }
+        // During plugin shutdown, no player task may be registered. Bukkit closes
+        // the inventories as part of server shutdown, so only discard our state.
+        activeInventories.clear();
     }
 
 }

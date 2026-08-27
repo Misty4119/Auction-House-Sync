@@ -115,6 +115,11 @@ public class SettingManager {
         AuctionHouse.getInstance().reloadConfig();
         FileConfiguration c = AuctionHouse.getInstance().getConfig();
 
+        // Compatibility migrations can reload the layout, which in turn
+        // rebuilds ItemManager's cached GUI items. Initialise this first so
+        // their MiniMessage names and lore are parsed during first startup.
+        useAdventureAPIMessages = c.getBoolean("use-adventure-text-minimessages", true);
+
         if (ConfigManager.backwardsCompatibility())
             backwardsCompatibility();
 
@@ -146,7 +151,6 @@ public class SettingManager {
         minBIDPrice = c.getDouble("min-bid", 1);
         maxBINPrice = c.getDouble("max-bin", -1);
         maxBIDPrice = c.getDouble("max-bid", -1);
-        useAdventureAPIMessages = c.getBoolean("use-adventure-text-minimessages", true);
         FileConfiguration layout = ConfigManager.layout.getCustomFile();
         soundClick = layout.getString("sounds.click", "ui.stonecutter.select_recipe");
         soundOpenEnderchest = layout.getString("sounds.open-enderchest", "block.ender_chest.open");

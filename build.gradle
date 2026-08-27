@@ -5,10 +5,11 @@ plugins {
 }
 
 group = 'me.elaineqheart'
-version = '2.0.2'
+version = '2.0.5'
 
 repositories {
     mavenCentral()
+    maven { url = "https://maven.canvasmc.io/releases" }
     maven {
         name = "papermc"
         url = "https://repo.papermc.io/repository/maven-public/"
@@ -28,7 +29,8 @@ repositories {
 
 //alt + ins
 dependencies {
-    compileOnly("io.papermc.paper:paper-api:1.21.4-R0.1-SNAPSHOT")
+    // Compile against the exact API shipped by canvas-build.923.jar.
+    compileOnly("io.canvasmc.canvas:canvas-api:26.2.build.923-stable")
     compileOnly("com.github.MilkBowl:VaultAPI:1.7") {
         exclude group: "org.bukkit", module: "bukkit"
     }
@@ -49,7 +51,7 @@ dependencies {
 
     testImplementation(platform("org.junit:junit-bom:5.11.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
-    testImplementation("io.papermc.paper:paper-api:1.21.4-R0.1-SNAPSHOT")
+    testImplementation("io.canvasmc.canvas:canvas-api:26.2.build.923-stable")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
@@ -76,11 +78,11 @@ tasks {
         // Configure the Minecraft version for our task.
         // This is the only required configuration besides applying the plugin.
         // Your plugin's jar (or shadowJar if present) will be used automatically.
-        minecraftVersion("1.21")
+        minecraftVersion("26.2")
     }
 }
 
-def targetJavaVersion = 21
+def targetJavaVersion = 25
 java {
     def javaVersion = JavaVersion.toVersion(targetJavaVersion)
     sourceCompatibility = javaVersion

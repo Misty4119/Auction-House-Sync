@@ -58,6 +58,9 @@ public class AuctionHouseStorage {
 
     public static synchronized void add(ItemNote note) {
         addToLists(note);
+        if (note != null && note.isBIDAuction()) {
+            addBid(note.getPlayerUUID(), note.getNoteID());
+        }
         updateSortedLists();
     }
 
@@ -136,8 +139,7 @@ public class AuctionHouseStorage {
 
         List<UUID> remainingPlayers = sortedPlayers.get(noteID);
         if (remainingPlayers == null) {
-            remainingPlayers = note.getBidders().stream()
-                    .filter(Objects::nonNull)
+            remainingPlayers = collectBidClaimants(true, note.getBidders(), note.getPlayerUUID()).stream()
                     .filter(player -> canCollectBid(note, player))
                     .collect(Collectors.toCollection(ArrayList::new));
             if (!remainingPlayers.isEmpty()) {
@@ -221,6 +223,8 @@ public class AuctionHouseStorage {
         if(!sortedBids.containsKey(playerID)) return List.of();
         return sortedBids.get(playerID).stream()
                 .map(notes::get)
+                .filter(Objects::nonNull)
+                .filter(itemNote -> itemNote.getBidders().contains(playerID))
                 .filter(itemNote -> itemNote.canClaimBid(playerID))
                 .toList();
     }
@@ -239,10 +243,26 @@ public class AuctionHouseStorage {
         sortedPlayers.clear();
         for(UUID noteID : itemNotes) {
             ItemNote note = notes.get(noteID);
-            for(UUID playerID : note.getBidders()) {
+            if (note == null) continue;
+            for(UUID playerID : collectBidClaimants(note.isBIDAuction(), note.getBidders(), note.getPlayerUUID())) {
                 if(canCollectBid(note, playerID)) addBid(playerID, note.getNoteID());
             }
         }
+    }
+
+    /**
+     * Returns every account with a pending claim on a bid auction. The seller
+     * is tracked internally so a restart cannot discard their unpaid sale,
+     * but callers rendering the bidder list must still filter to actual
+     * bidders (see {@link #getMyBids(UUID)}).
+     */
+    static Set<UUID> collectBidClaimants(boolean bidAuction, Collection<UUID> bidders, UUID seller) {
+        if (!bidAuction) return Set.of();
+        Set<UUID> claimants = new HashSet<>();
+        if (bidders != null) claimants.addAll(bidders);
+        if (seller != null) claimants.add(seller);
+        claimants.remove(null);
+        return claimants;
     }
 
     private static void updateSortedLists(){

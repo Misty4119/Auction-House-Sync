@@ -144,6 +144,9 @@ public class StringUtils {
                     case "m":
                         price *= 1000000;
                         break;
+                    case "b":
+                        price *= 1000000000;
+                        break;
                     default:
                         return -1;
                 }

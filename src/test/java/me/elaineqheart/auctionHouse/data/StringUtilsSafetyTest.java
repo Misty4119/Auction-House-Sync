@@ -18,6 +18,14 @@ class StringUtilsSafetyTest {
     }
 
     @Test
+    void parsesBillionPriceSuffix() {
+        org.junit.jupiter.api.Assertions.assertEquals(10_000_000_000D,
+                StringUtils.parsePositiveNumber("10b"));
+        org.junit.jupiter.api.Assertions.assertEquals(1_500_000_000D,
+                StringUtils.parsePositiveNumber("1.5B"));
+    }
+
+    @Test
     void itemNameResolutionDoesNotMutateAWorld() throws IOException {
         String source = Files.readString(Path.of(
                 "src/main/java/me/elaineqheart/auctionHouse/data/StringUtils.java"));

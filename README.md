@@ -1,6 +1,6 @@
 # Auction-House-Sync
 
-Shared auction-house plugin for a Canvas 26.2 network. Version `2.1.0` stores auctions durably in MySQL and synchronizes live changes between servers through Redis.
+Shared auction-house plugin for a Canvas 26.2 network. Version `2.1.1` stores auctions durably in MySQL and synchronizes live changes between servers through Redis.
 
 ## Runtime Target
 
@@ -48,7 +48,7 @@ Every node loads persistent state from MySQL. Mutations update the local state, 
 
 ## Installation
 
-1. Build `AuctionHouse-2.1.0.jar` with `./gradlew shadowJar`.
+1. Build `AuctionHouse-2.1.1.jar` with `./gradlew shadowJar`.
 2. Install the jar and Vault with a configured economy provider on every Canvas node.
 3. Start each server once to generate `plugins/AuctionHouse/config.yml`.
 4. Configure every node to use the same MySQL and Redis instances.
@@ -115,7 +115,7 @@ This avoids common Canvas ownership failures such as opening another player's in
 ./gradlew test shadowJar
 ```
 
-The shaded release jar is written to the repository root as `AuctionHouse-2.1.0.jar`.
+The shaded release jar is written to the repository root as `AuctionHouse-2.1.1.jar`.
 
 The test suite compiles against Canvas API build 937 and checks scheduler routing, safety guards, Redis note synchronization, and cluster fail-closed configuration paths.
 

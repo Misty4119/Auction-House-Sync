@@ -421,6 +421,10 @@ public class ItemNoteStorage {
             if (!note.isBIDAuction()) deleteNote(note);
             else {
                 note.setSold(true);
+                // The seller's payout is the final claim on a bid auction.
+                // Remove it from the in-memory claim index only after the
+                // database-guarded sale transition has succeeded.
+                AuctionHouseStorage.removeBid(note.getPlayerUUID(), note.getNoteID());
                 AuctionHouseStorage.checkRemove(note.getNoteID());
             }
         }

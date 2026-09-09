@@ -387,10 +387,10 @@ public class ItemManager {
             } else {
                 addAdminMessageOrExpired(lore, note);
             }
-        } else if (note.isExpired()) {
-            addAdminMessageOrExpired(lore, note);
         } else if (note.isBIDAuction() && note.hasBidHistory() && note.isExpired()) {
             lore.addAll(M.getLoreComponents("items.auction.lore.ended"));
+        } else if (note.isExpired()) {
+            addAdminMessageOrExpired(lore, note);
         } else if (note.isSold() && !note.isTheoreticallyOnAuction()) {
             lore.addAll(M.getLoreComponents("items.auction.lore.sold",
                     "%buyer%", M.toPlain(M.formatBuyerComponent(note.getBuyerName(), note.getBuyerUUID()))));

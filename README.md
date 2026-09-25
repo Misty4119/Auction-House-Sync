@@ -8,7 +8,7 @@ Shared auction-house plugin for a Canvas 26.2 network. Version `2.1.1` stores au
 | --- | --- |
 | Java | 25 |
 | Canvas | `26.2-937-6a600b8` |
-| Compile API | `io.canvasmc.canvas:canvas-api:26.2.build.937-stable` |
+| Compile API | `io.canvasmc.canvas:canvas-api:26.2.build.941-stable` |
 | Persistence | MySQL 8.x |
 | Synchronization | Redis 8.x |
 

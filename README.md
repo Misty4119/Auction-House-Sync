@@ -1,20 +1,20 @@
 # Auction-House-Sync
 
-Shared auction-house plugin for a Canvas 26.2 network. Version `2.1.1` stores auctions durably in MySQL and synchronizes live changes between servers through Redis.
+Shared auction-house plugin for a Canvas 26.2 network. Version `2.1.2` stores auctions durably in MySQL and synchronizes live changes between servers through Redis.
 
 ## Runtime Target
 
 | Component | Supported target |
 | --- | --- |
 | Java | 25 |
-| Canvas | `26.2-937-6a600b8` |
+| Canvas | `26.2-941-HEAD@4a0ed14` |
 | Compile API | `io.canvasmc.canvas:canvas-api:26.2.build.941-stable` |
 | Persistence | MySQL 8.x |
 | Synchronization | Redis 8.x |
 
 `plugin.yml` declares both `folia-supported: true` and `canvas-supported: true`. The runtime design uses Folia's ownership model: player GUI and messages run on each player's Entity Scheduler, and display/world changes run on the owning Region Scheduler.
 
-Paper and Folia remain source-compatible targets through MorePaperLib, but Canvas 26.2 build 937 is the release target and the environment used for compatibility work.
+Paper and Folia remain source-compatible targets through MorePaperLib, but Canvas 26.2 build 941 is the release target and the environment used for compatibility work.
 
 ## Features
 
@@ -41,14 +41,14 @@ Every node loads persistent state from MySQL. Mutations update the local state, 
 ## Requirements
 
 - Java 25.
-- Canvas `26.2-937-6a600b8` for the production target.
+- Canvas `26.2-941-HEAD@4a0ed14` for the production target.
 - Vault and a working Vault economy provider.
 - Shared MySQL 8.x and Redis 8.x for a multi-server market.
 - Network access from every server node to the same MySQL and Redis endpoints.
 
 ## Installation
 
-1. Build `AuctionHouse-2.1.1.jar` with `./gradlew shadowJar`.
+1. Build `AuctionHouse-2.1.2.jar` with `./gradlew shadowJar`.
 2. Install the jar and Vault with a configured economy provider on every Canvas node.
 3. Start each server once to generate `plugins/AuctionHouse/config.yml`.
 4. Configure every node to use the same MySQL and Redis instances.
@@ -115,13 +115,13 @@ This avoids common Canvas ownership failures such as opening another player's in
 ./gradlew test shadowJar
 ```
 
-The shaded release jar is written to the repository root as `AuctionHouse-2.1.1.jar`.
+The shaded release jar is written to the repository root as `AuctionHouse-2.1.2.jar`.
 
-The test suite compiles against Canvas API build 937 and checks scheduler routing, safety guards, Redis note synchronization, and cluster fail-closed configuration paths.
+The test suite compiles against Canvas API build 941 and checks scheduler routing, safety guards, Redis note synchronization, and cluster fail-closed configuration paths.
 
 ## Production Verification
 
-Before declaring a network ready, run two Canvas 26.2 build 937 nodes against the intended MySQL and Redis services and verify:
+Before declaring a network ready, run two Canvas 26.2 build 941 nodes against the intended MySQL and Redis services and verify:
 
 1. A listing on node A is visible on node B.
 2. BIN purchases and bids made from different nodes result in one durable final state.

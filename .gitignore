@@ -121,6 +121,13 @@ bin/
 build/
 docs/
 
+# Publish only the approved upstream review; other docs remain local.
+!/docs/
+/docs/*
+!/docs/research/
+/docs/research/*
+!/docs/research/upstream-review-2026-10.md
+
 # Local secrets, runtime data, and generated test output
 .env
 .env.*

@@ -1,0 +1,38 @@
+name: Feature request
+description: Propose an improvement that fits the shared auction network.
+title: "[Feature]: "
+labels: ["enhancement", "triage: needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: Describe who needs the change and what they cannot do today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe commands, GUI actions, configuration, or network behavior as relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: shared_state
+    attributes:
+      label: Persistence and network impact
+      description: Explain what must be shared across nodes, survive restarts, or affect item/economy state. If unknown, say so.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives and compatibility
+      description: Include workarounds and compatibility concerns for Canvas, Vault, MySQL, Redis, or existing configuration.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I checked existing issues for this request.
+          required: true

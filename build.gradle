@@ -5,7 +5,7 @@ plugins {
 }
 
 group = 'me.elaineqheart'
-version = '2.1.2'
+version = '2.1.3'
 
 repositories {
     mavenCentral()
@@ -36,10 +36,6 @@ dependencies {
     }
     compileOnly("com.github.Unp1xelt:Locale-API:1.0")
     compileOnly("me.clip:placeholderapi:2.11.6")
-    implementation("net.kyori:adventure-api:4.25.0")
-    implementation("net.kyori:adventure-text-minimessage:4.25.0")
-    implementation("net.kyori:adventure-text-serializer-legacy:4.25.0")
-    implementation("net.kyori:adventure-text-serializer-plain:4.25.0")
     implementation("space.arim.morepaperlib:morepaperlib:0.4.4")
 
     // Multi-server database support: MySQL (persistence) + Redis 8.0 (real-time sync / cache)
@@ -69,6 +65,15 @@ tasks.named('shadowJar') {
     archiveClassifier.set('')
     archiveVersion.set(version)
     relocate("space.arim.morepaperlib", "me.elaineqheart.auctionHouse.libs.morepaperlib")
+    relocate("com.mysql", "me.elaineqheart.auctionHouse.libs.mysql")
+    relocate("com.google.protobuf", "me.elaineqheart.auctionHouse.libs.protobuf")
+    relocate("com.zaxxer.hikari", "me.elaineqheart.auctionHouse.libs.hikari")
+    relocate("redis.clients", "me.elaineqheart.auctionHouse.libs.redis")
+    relocate("org.apache.commons.pool2", "me.elaineqheart.auctionHouse.libs.commons.pool2")
+    relocate("org.json", "me.elaineqheart.auctionHouse.libs.json")
+    relocate("com.google.gson", "me.elaineqheart.auctionHouse.libs.gson")
+    relocate("com.google.errorprone.annotations", "me.elaineqheart.auctionHouse.libs.errorprone.annotations")
+    relocate("org.slf4j", "me.elaineqheart.auctionHouse.libs.slf4j")
     destinationDirectory.set(file("${rootDir}"))
     mergeServiceFiles()
 }

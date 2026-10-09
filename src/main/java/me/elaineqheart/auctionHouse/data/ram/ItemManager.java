@@ -354,6 +354,9 @@ public class ItemManager {
         if (isShulkerBox(item)) {
             lore.addAll(M.getLoreComponents("items.auction.lore.shulker-preview"));
         }
+        if (isBundle(item)) {
+            lore.addAll(M.getLoreComponents("items.auction.lore.bundle-preview"));
+        }
         if (!note.isBIDAuction()) {
             lore.addAll(M.getLoreComponents("items.auction.lore.default", ownAuction ? note.getPrice() : note.getCurrentPrice(),
                     "%seller%", M.toPlain(M.formatSellerComponent(note.getPlayerName(), note.getPlayerUUID()))));

@@ -105,6 +105,7 @@ public class AuctionHouseCommand implements CommandExecutor, TabCompleter {
             if((strings.length==2 || strings.length==3) &&
                     (strings[0].equals(M.getFormatted("commands.sell")) && SettingManager.BINAuctions
                             || strings[0].equals(M.getFormatted("commands.bid")) && SettingManager.BIDAuctions)) {
+                boolean isBIDAuction = strings[0].equals(M.getFormatted("commands.bid"));
                 if(ConfigManager.bannedPlayers.checkIsBannedSendMessage(p)) {
                     return true;
                 }
@@ -127,17 +128,17 @@ public class AuctionHouseCommand implements CommandExecutor, TabCompleter {
                     M.send(p, "command-feedback.invalid-number2");
                     return true;
                 }
-                if (strings[0].equals(M.getFormatted("commands.sell")) && price < SettingManager.minBINPrice) {
+                if (!isBIDAuction && price < SettingManager.minBINPrice) {
                     M.send(p, "command-feedback.min-bin", SettingManager.minBINPrice);
                     return true;
-                } else if (strings[0].equals(M.getFormatted("commands.bid")) && price < SettingManager.minBIDPrice) {
+                } else if (isBIDAuction && price < SettingManager.minBIDPrice) {
                     M.send(p, "command-feedback.min-bid", SettingManager.minBIDPrice);
                     return true;
                 }
-                if (SettingManager.maxBINPrice > -1 && strings[0].equals(M.getFormatted("commands.sell")) && price > SettingManager.maxBINPrice) {
+                if (SettingManager.maxBINPrice > -1 && !isBIDAuction && price > SettingManager.maxBINPrice) {
                     M.send(p, "command-feedback.max-bin", SettingManager.maxBINPrice);
                     return true;
-                } else if (SettingManager.maxBIDPrice > -1 && strings[0].equals(M.getFormatted("commands.bid")) && price > SettingManager.maxBIDPrice) {
+                } else if (SettingManager.maxBIDPrice > -1 && isBIDAuction && price > SettingManager.maxBIDPrice) {
                     M.send(p, "command-feedback.max-bid", SettingManager.maxBIDPrice);
                     return true;
                 }
@@ -160,7 +161,7 @@ public class AuctionHouseCommand implements CommandExecutor, TabCompleter {
                 inputItem.setAmount(amount);
                 item.setAmount(item.getAmount() - amount);
                 ItemNote createdNote = ItemNoteStorage.createNote(
-                        p, inputItem, price, strings[0].equals(M.getFormatted("commands.bid")));
+                        p, inputItem, price, isBIDAuction);
                 M.send(p, "command-feedback.auction", price);
 
                 // Announce the new auction across the cluster. The local
@@ -171,8 +172,8 @@ public class AuctionHouseCommand implements CommandExecutor, TabCompleter {
                 // "/ah sell" GUI on this node).
                 if(SettingManager.auctionAnnouncementsEnabled) {
                     String itemName = createdNote.getItemName();
-                    String messageKey = strings[0].equals(M.getFormatted("commands.sell"))
-                            ? "chat.auction-announcement" : "chat.bid-announcement";
+                    String messageKey = isBIDAuction
+                            ? "chat.bid-announcement" : "chat.auction-announcement";
                     UUID sellerUuid = p.getUniqueId();
                     // Pre-format %price% so we can use the String... overload of
                     // M.getFormatted on every receiver (including the Redis

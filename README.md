@@ -1,6 +1,6 @@
 # Auction-House-Sync
 
-Shared auction-house plugin for a Canvas 26.2 network. Version `2.1.2` stores auctions durably in MySQL and synchronizes live changes between servers through Redis.
+Shared auction-house plugin for a Canvas 26.2 network. Version `2.1.3` stores auctions durably in MySQL and synchronizes live changes between servers through Redis.
 
 ## Runtime Target
 
@@ -48,7 +48,7 @@ Every node loads persistent state from MySQL. Mutations update the local state, 
 
 ## Installation
 
-1. Build `AuctionHouse-2.1.2.jar` with `./gradlew shadowJar`.
+1. Build `AuctionHouse-2.1.3.jar` with `./gradlew shadowJar`.
 2. Install the jar and Vault with a configured economy provider on every Canvas node.
 3. Start each server once to generate `plugins/AuctionHouse/config.yml`.
 4. Configure every node to use the same MySQL and Redis instances.
@@ -115,7 +115,7 @@ This avoids common Canvas ownership failures such as opening another player's in
 ./gradlew test shadowJar
 ```
 
-The shaded release jar is written to the repository root as `AuctionHouse-2.1.2.jar`.
+On Windows, use `.\gradlew.bat test shadowJar`. The shaded release jar is written to the repository root as `AuctionHouse-2.1.3.jar`.
 
 The test suite compiles against Canvas API build 941 and checks scheduler routing, safety guards, Redis note synchronization, and cluster fail-closed configuration paths.
 
@@ -129,7 +129,7 @@ Before declaring a network ready, run two Canvas 26.2 build 941 nodes against th
 4. Redis restart/reconnect converges state without duplicate auctions or lost updates.
 5. Display creation, reload, and removal work across chunk and region boundaries.
 
-The detailed compatibility research and acceptance matrix are in [docs/canvas-26.2-compatibility-research.md](docs/canvas-26.2-compatibility-research.md).
+Record what each check actually demonstrates; startup and synchronization smoke tests do not establish financial atomicity. Use full Canvas restarts for plugin changes, never Bukkit `/reload`.
 
 ## Development
 
@@ -138,6 +138,12 @@ The detailed compatibility research and acceptance matrix are in [docs/canvas-26
 ```
 
 `runServer` downloads a Minecraft `26.2` development server. It does not replace the two-node acceptance test because a real shared MySQL/Redis configuration and separate Canvas nodes are required to validate network convergence.
+
+## Contributing and Releases
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development and review, [AGENTS.md](AGENTS.md) for agent guidance, and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for community conduct. Report vulnerabilities through the route in [SECURITY.md](SECURITY.md).
+
+Release preparation and version/tag checks are described in [RELEASING.md](RELEASING.md). See [CHANGELOG.md](CHANGELOG.md) for changes and the [upstream review](docs/research/upstream-review-2026-10.md) for the maintenance release's upstream decisions.
 
 ## Credits and License
 

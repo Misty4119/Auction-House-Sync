@@ -165,6 +165,7 @@ items:
       active: "<color:#8C8FA3>Time Left:</color> <color:#9CC3FF>%time%</color>"
       buying-item: "<color:#8C8FA3>──────────────────</color>&n<color:#9CC3FF><underlined>Purchasing...</underlined></color>"
       shulker-preview: "<color:#D6DAEA><italic>Right-Click to preview!</italic></color>"
+      bundle-preview: "<color:#D6DAEA><italic>Right-Click to preview!</italic></color>"
   admin-expire-item:
     lore: "<color:#8C8FA3>──────────────────</color>&n<color:#8C8FA3>Seller:</color> <color:#B89BE8>%seller%</color>&n<color:#8C8FA3>Price:</color> <color:#9CC3FF>%price%</color>&n&n<color:#FF6B8A>Expired by Admin!</color>&n<color:#8C8FA3>Reason:</color> <color:#D6DAEA>%reason%</color>"
   admin-delete-item:

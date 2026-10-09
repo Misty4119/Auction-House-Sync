@@ -1,0 +1,71 @@
+name: Bug report
+description: Report a reproducible Auction-House-Sync problem.
+title: "[Bug]: "
+labels: ["bug", "triage: needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For security vulnerabilities, follow SECURITY.md. Redact credentials, sync secrets, service addresses, and player data from all attachments.
+  - type: input
+    id: plugin_version
+    attributes:
+      label: Plugin version
+      description: Include the JAR version or commit if built locally.
+    validations:
+      required: true
+  - type: input
+    id: runtime
+    attributes:
+      label: Canvas and Java versions
+      description: Include the full Canvas build and Java version.
+      placeholder: Canvas 26.2 build 941, Java 25
+    validations:
+      required: true
+  - type: dropdown
+    id: storage_mode
+    attributes:
+      label: Storage mode
+      options:
+        - MySQL persistence and Redis cache
+        - MySQL persistence and JSON cache
+        - JSON persistence and JSON cache
+        - Other (describe below)
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Network and integrations
+      description: Include node count, MySQL/Redis versions, Vault economy provider, relevant plugins, and sanitized configuration differences. Do not include connection credentials or sync secrets.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Include commands or GUI actions, which nodes/players are involved, and whether the issue survives a full restart.
+    validations:
+      required: true
+  - type: textarea
+    id: expected_actual
+    attributes:
+      label: Expected and actual behavior
+      description: Describe auction/item/economy impact and any scheduler ownership errors.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Redacted logs and additional evidence
+      description: Include the relevant startup/error excerpt and timing. Keep secrets and personal information out.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I checked existing issues for the same problem.
+          required: true
+        - label: I removed credentials, sync secrets, and private player data from this report.
+          required: true

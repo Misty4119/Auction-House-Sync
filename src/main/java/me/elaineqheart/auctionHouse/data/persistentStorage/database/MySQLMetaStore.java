@@ -88,7 +88,7 @@ public final class MySQLMetaStore {
                     z                 DOUBLE       NOT NULL,
                     yaw               FLOAT        NOT NULL DEFAULT 0,
                     pitch             FLOAT        NOT NULL DEFAULT 0,
-                    rank              INT          NOT NULL,
+                    `rank`            INT          NOT NULL,
                     sort_type         VARCHAR(32)  NOT NULL,
                     glass_uuid        CHAR(36),
                     interaction_uuid  CHAR(36),
@@ -499,7 +499,7 @@ public final class MySQLMetaStore {
         Map<Integer, DisplayRow> out = new HashMap<>();
         try (Connection c = MySQLManager.getConnection();
              PreparedStatement ps = c.prepareStatement("""
-                SELECT display_id, world, x, y, z, yaw, pitch, rank, sort_type,
+                SELECT display_id, world, x, y, z, yaw, pitch, `rank`, sort_type,
                        glass_uuid, interaction_uuid, item_uuid, text_uuid, server_id
                 FROM ah_displays
                 """)) {
@@ -529,14 +529,14 @@ public final class MySQLMetaStore {
         try (Connection c = MySQLManager.getConnection();
              PreparedStatement ps = c.prepareStatement("""
                 INSERT INTO ah_displays
-                  (display_id, world, x, y, z, yaw, pitch, rank, sort_type,
+                  (display_id, world, x, y, z, yaw, pitch, `rank`, sort_type,
                    glass_uuid, interaction_uuid, item_uuid, text_uuid, server_id, updated_at)
                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 ON DUPLICATE KEY UPDATE
                   world = VALUES(world),
                   x = VALUES(x), y = VALUES(y), z = VALUES(z),
                   yaw = VALUES(yaw), pitch = VALUES(pitch),
-                  rank = VALUES(rank), sort_type = VALUES(sort_type),
+                  `rank` = VALUES(`rank`), sort_type = VALUES(sort_type),
                   glass_uuid = VALUES(glass_uuid),
                   interaction_uuid = VALUES(interaction_uuid),
                   item_uuid = VALUES(item_uuid),
